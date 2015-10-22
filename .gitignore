@@ -195,3 +195,39 @@ unix/config/config.sub
 unix/config/depcomp
 unix/config/install-sh
 unix/config/missing
+
+# Autotools generated files
+.deps
+.dirstamp
+/Makefile*
+/source/Makefile*
+/unix/Makefile*
+/config.h*
+/configure*
+
+# Misc generated files
+/kde_install.sh
+/povray.ini*
+/scenes
+/icons
+/include
+/ini
+/povray.*
+/stamp-h1
+/source/jversion.h
+/README
+/VERSION
+/NEWS
+/AUTHORS
+/COPYING
+/ChangeLog
+/INSTALL
+/aclocal.m4
+/bootstrap
+/config.status
+/scripts
+
+# Ignore unix binaries
+/unix/povray
+
+/vfe/Makefile*
