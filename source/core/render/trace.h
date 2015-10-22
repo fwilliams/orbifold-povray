@@ -792,6 +792,23 @@ class Trace
     //*****************************************************************************
     ///
 
+
+    ///
+    //*****************************************************************************
+    ///
+    /// @name Orbifold structure lighting computations
+    ///
+    /// Implement lighting computations in scenes with non trivial orbifold structure
+    ///
+    /// @{
+    ///
+        double ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& isect);
+        double ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection& isect);
+    ///
+    /// @}
+    ///
+    //*****************************************************************************
+    ///
 };
 
 }

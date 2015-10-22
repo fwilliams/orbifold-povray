@@ -65,6 +65,7 @@
 #include "core/math/vector.h"
 #include "core/scene/atmosphere.h"
 #include "core/scene/object.h"
+#include "core/scene/orbifold.h"
 #include "core/scene/tracethreaddata.h"
 #include "core/shape/bezier.h"
 #include "core/shape/blob.h"
@@ -93,7 +94,6 @@
 #include "core/shape/truetype.h"
 #include "core/support/imageutil.h"
 #include "core/support/octree.h"
-
 #include "povms/povmsid.h"
 
 #include "backend/scene/backendscenedata.h"
@@ -6999,6 +6999,79 @@ void Parser::Parse_Global_Settings()
             Parse_Colour (sceneData->ambientLight);
         END_CASE
 
+#ifdef ORBIFOLDS
+        CASE (ORBIFOLD_TOKEN)
+            Warning("orbifold keyword encountered.");
+
+            Parse_Begin();
+            EXPECT
+                CASE(XX_TOKEN)
+                    Warning("** Orbifold");
+                    sceneData->orbifoldInfo.type = XX;
+                    Parse_Vector(sceneData->orbifoldInfo.scale);
+
+                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                END_CASE
+
+                CASE(X2222_TOKEN)
+                    Warning("*2222 Orbifold");
+                    sceneData->orbifoldInfo.type = X2222;
+                    Parse_Vector(sceneData->orbifoldInfo.scale);
+
+                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r3 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r4 = Parse_Float();
+
+                END_CASE
+
+                CASE(X333_TOKEN)
+                    Warning("*333 Orbifold");
+                    sceneData->orbifoldInfo.type = X333;
+                    Parse_Vector(sceneData->orbifoldInfo.scale);
+                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r3 = Parse_Float();
+
+                END_CASE
+
+                CASE(X632_TOKEN)
+                    Warning("*632 Orbifold");
+                    sceneData->orbifoldInfo.type = X632;
+                    Parse_Vector(sceneData->orbifoldInfo.scale);
+                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r3 = Parse_Float();
+                END_CASE
+
+                CASE(X442_TOKEN)
+                    Warning("*442 Orbifold");
+                    sceneData->orbifoldInfo.type = X442;
+                    Parse_Vector(sceneData->orbifoldInfo.scale);
+                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    Parse_Comma();
+                    sceneData->orbifoldInfo.r3 = Parse_Float();
+                END_CASE
+
+                OTHERWISE
+                    UNGET
+                    EXIT
+                END_CASE
+            END_EXPECT
+            Parse_End();
+        END_CASE
+#endif
         CASE (PHOTONS_TOKEN)
             // TODO FIXME PHOTONS
             sceneData->photonSettings.minGatherCount = 20;

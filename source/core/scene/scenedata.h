@@ -41,6 +41,7 @@
 #include "core/lighting/radiosity.h"
 #include "core/scene/camera.h"
 #include "core/shape/truetype.h"
+#include "core/scene/orbifold.h"
 
 namespace pov
 {
@@ -215,6 +216,9 @@ class SceneData
         // BSP statistics // TODO - not sure if this is the best place for stats
         unsigned int nodes, splitNodes, objectNodes, emptyNodes, maxObjects, maxDepth, aborts;
         float averageObjects, averageDepth, averageAborts, averageAbortObjects;
+
+        // The Orbifold for the scene. By default this represents the trivial orbifold
+        OrbifoldInfo orbifoldInfo;
 
         // ********************************************************************************
         // ********************************************************************************

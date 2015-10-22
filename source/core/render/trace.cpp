@@ -211,6 +211,9 @@ double Trace::TraceRay(Ray& ray, MathColour& colour, ColourChannel& transm, COLC
 
     ray.GetTicket().radiosityImportanceQueried = oldRadiosityImportanceQueried;
 
+    // Attenuate the output color based on the orbifold structure of the scene
+    colour *= ComputeOrbifoldAttenuation(ray, bestisect);
+
     if(found == false)
         return HUGE_VAL;
     else
@@ -3808,6 +3811,72 @@ void Trace::ComputeSubsurfaceScattering(const FINISH *Finish, const MathColour& 
     Final_Colour += Total_Colour;
 
     Eye.GetTicket().subsurfaceRecursionDepth--;
+}
+
+
+double Trace::ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& isect)
+{
+  switch(sceneData->orbifoldInfo.type) {
+  case TRIVIAL:
+    return 1.0;
+  case X2222:
+    return ComputeX2222OrbifoldAttenuation(ray, isect);
+  default:
+    throw runtime_error("balls to you!");
+  }
+}
+
+double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection& isect)
+{
+  typedef GenericVector2d<POV_INT64> IntVector2d;
+
+  const Vector3d rayStart = ray.Origin; // TODO: Ensure these points are both in global space
+  const Vector3d rayEnd = isect.IPoint;
+  const Vector3d scale = sceneData->orbifoldInfo.scale;
+
+  const IntVector2d latticeStart(floor(rayStart.x()/scale.x() + 0.5), floor(rayStart.z()/scale.z() + 0.5));
+  const IntVector2d latticeEnd(floor(rayEnd.x()/scale.x() + 0.5), floor(rayEnd.z()/scale.z() + 0.5));
+  const IntVector2d latticeDist(abs(latticeStart.x() - latticeEnd.x()), abs(latticeStart.y() - latticeEnd.y()));
+
+  // Bail out if the ray doesn't attenuate
+  if(latticeDist.x() == 0 && latticeDist.y() == 0) {
+    return 1.0;
+  }
+
+  // Whether we're starting from even and odd indices in x and y
+  const IntVector2d evenOddStart(latticeStart.x() % 2, latticeStart.y() % 2);
+
+  // Mirror vector is (left, top, right, bottom)
+  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+  POV_INT64 x1 = latticeDist.x() / 2;
+  POV_INT64 x2 = latticeDist.x() - x1;
+  POV_INT64 y1 = latticeDist.y() / 2;
+  POV_INT64 y2 = latticeDist.y() - y1;
+
+  // Even and going left (-) or odd and going right (+)
+  if((evenOddStart.x() == 0 && latticeStart.x() > latticeEnd.x()) ||
+     (evenOddStart.x() == 1 && latticeStart.x() < latticeEnd.x())) {
+    n0 = x2;
+    n2 = x1;
+  } else if(latticeDist.x() != 0) { // Even and going right (+) or Odd and going left (-)
+    n0 = x1;
+    n2 = x2;
+  }
+
+  // Even and going down (-) or odd and going up (+)
+  if((evenOddStart.y() == 0 && latticeStart.y() > latticeEnd.y()) ||
+     (evenOddStart.y() == 1 && latticeStart.y() < latticeEnd.y())) {
+    n3 = y2;
+    n1 = y1;
+  } else if(latticeDist.x() != 0) { // Even and going up (+) or Odd and going down (-)
+    n3 = y1;
+    n1 = y2;
+  }
+
+  return pow(sceneData->orbifoldInfo.r1, (double)n0) *
+         pow(sceneData->orbifoldInfo.r2, (double)n1) *
+         pow(sceneData->orbifoldInfo.r3, (double)n2) *
+         pow(sceneData->orbifoldInfo.r4, (double)n3);
 }
 
 } // end of namespace

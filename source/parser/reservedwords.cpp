@@ -389,6 +389,14 @@ const RESERVED_WORD Reserved_Words[LAST_TOKEN] = {
     {ON_TOKEN, "on"},
     {OPEN_TOKEN, "open"},
     {OPTIONAL_TOKEN, "optional"},
+#ifdef ORBIFOLDS
+    {ORBIFOLD_TOKEN, "orbifold"},
+    {XX_TOKEN, "xx"},
+    {X2222_TOKEN, "x2222"},
+    {X333_TOKEN, "x333"},
+    {X632_TOKEN, "x632"},
+    {X442_TOKEN, "x442"},
+#endif
     {ORIENTATION_TOKEN, "orientation"},
     {ORIENT_TOKEN,"orient"},
     {ORTHOGRAPHIC_TOKEN, "orthographic"},

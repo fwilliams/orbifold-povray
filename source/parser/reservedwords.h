@@ -37,6 +37,8 @@
 #ifndef POVRAY_PARSER_RESERVEDWORDS_H
 #define POVRAY_PARSER_RESERVEDWORDS_H
 
+#define ORBIFOLDS 1
+
 namespace pov
 {
 
@@ -641,6 +643,14 @@ enum TOKEN_IDS
     PAVEMENT_TOKEN,
     TILING_TOKEN,
     XYZ_TOKEN,
+#ifdef ORBIFOLDS
+    ORBIFOLD_TOKEN,
+    XX_TOKEN,
+    X2222_TOKEN,
+    X333_TOKEN,
+    X632_TOKEN,
+    X442_TOKEN,
+#endif
     LAST_TOKEN
 };
 
