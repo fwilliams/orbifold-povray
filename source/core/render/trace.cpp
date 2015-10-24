@@ -3821,6 +3821,8 @@ double Trace::ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& ise
     return 1.0;
   case X2222:
     return ComputeX2222OrbifoldAttenuation(ray, isect);
+  case X333:
+    return ComputeX333OrbifoldAttenuation(ray, isect);
   default:
     throw runtime_error("balls to you!");
   }
@@ -3830,12 +3832,11 @@ double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection
 {
   typedef GenericVector2d<POV_INT64> IntVector2d;
 
-  const Vector3d rayStart = ray.Origin; // TODO: Ensure these points are both in global space
-  const Vector3d rayEnd = isect.IPoint;
-  const Vector3d scale = sceneData->orbifoldInfo.scale;
+  const Vector3d rayStart = ray.Origin / sceneData->orbifoldInfo.scale;
+  const Vector3d rayEnd = isect.IPoint / sceneData->orbifoldInfo.scale;
 
-  const IntVector2d latticeStart(floor(rayStart.x()/scale.x() + 0.5), floor(rayStart.z()/scale.z() + 0.5));
-  const IntVector2d latticeEnd(floor(rayEnd.x()/scale.x() + 0.5), floor(rayEnd.z()/scale.z() + 0.5));
+  const IntVector2d latticeStart(floor(rayStart.x() + 0.5), floor(rayStart.z() + 0.5));
+  const IntVector2d latticeEnd(floor(rayEnd.x() + 0.5), floor(rayEnd.z() + 0.5));
   const IntVector2d latticeDist(abs(latticeStart.x() - latticeEnd.x()), abs(latticeStart.y() - latticeEnd.y()));
 
   // Bail out if the ray doesn't attenuate
@@ -3844,7 +3845,7 @@ double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection
   }
 
   // Whether we're starting from even and odd indices in x and y
-  const IntVector2d evenOddStart(latticeStart.x() % 2, latticeStart.y() % 2);
+  const IntVector2d latticeMod(latticeStart.x() % 2, latticeStart.y() % 2);
 
   // Mirror vector is (left, top, right, bottom)
   POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
@@ -3854,8 +3855,8 @@ double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection
   POV_INT64 y2 = latticeDist.y() - y1;
 
   // Even and going left (-) or odd and going right (+)
-  if((evenOddStart.x() == 0 && latticeStart.x() > latticeEnd.x()) ||
-     (evenOddStart.x() == 1 && latticeStart.x() < latticeEnd.x())) {
+  if((latticeMod.x() == 0 && latticeStart.x() > latticeEnd.x()) ||
+     (latticeMod.x() == 1 && latticeStart.x() < latticeEnd.x())) {
     n0 = x2;
     n2 = x1;
   } else if(latticeDist.x() != 0) { // Even and going right (+) or Odd and going left (-)
@@ -3864,11 +3865,11 @@ double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection
   }
 
   // Even and going down (-) or odd and going up (+)
-  if((evenOddStart.y() == 0 && latticeStart.y() > latticeEnd.y()) ||
-     (evenOddStart.y() == 1 && latticeStart.y() < latticeEnd.y())) {
+  if((latticeMod.y() == 0 && latticeStart.y() > latticeEnd.y()) ||
+     (latticeMod.y() == 1 && latticeStart.y() < latticeEnd.y())) {
     n3 = y2;
     n1 = y1;
-  } else if(latticeDist.x() != 0) { // Even and going up (+) or Odd and going down (-)
+  } else if(latticeDist.y() != 0) { // Even and going up (+) or Odd and going down (-)
     n3 = y1;
     n1 = y2;
   }
@@ -3879,4 +3880,110 @@ double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection
          pow(sceneData->orbifoldInfo.r4, (double)n3);
 }
 
+Vector3d roundHexCoordinate(const Vector3d& hexCoord) {
+  Vector3d r = vround(hexCoord);//(round(hexCoord.x()), round(hexCoord.y()), round(hexCoord.z()));
+  Vector3d diff = vabs(hexCoord - r); //(abs(hexCoord.x() - r.x()), abs(hexCoord.y() - r.y()), abs(hexCoord.z() - r.z()));
+
+  if(diff.x() > diff.y() && diff.x() > diff.z()) {
+    r.x() = -r.y() - r.z();
+  } else if (diff.y() > diff.z()) {
+    r.y() = -r.x() - r.z();
+  } else {
+    r.z() = -r.x() - r.y();
+  }
+
+  return r;
+}
+
+double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect)
+{
+  typedef GenericVector2d<POV_INT64> IntVector2d;
+  typedef GenericVector3d<POV_INT64> IntVector3d;
+
+  const double SQRT_3 = 1.73205080757;
+
+  const Vector3d rayStart = (ray.Origin / sceneData->orbifoldInfo.scale);
+  const Vector3d rayEnd = (isect.IPoint / sceneData->orbifoldInfo.scale);
+
+  const Vector3d hexLatticeScale(2.0 * SQRT_3 / 3.0, 1.0, 2.0/SQRT_3);
+  const Vector3d rst = rayStart;
+  const Vector3d ret = rayEnd;
+
+  const Vector3d hexStart(-rst.z() - (rst.x()/SQRT_3), rst.z() - (rst.x()/SQRT_3), 2.0 * rst.x() / SQRT_3);
+  const Vector3d hexEnd(-ret.z() - (ret.x()/SQRT_3), ret.z() - (ret.x()/SQRT_3), 2.0 * ret.x() / SQRT_3);
+
+  const Vector3d hexDist = vabs(roundHexCoordinate(hexEnd) - roundHexCoordinate(hexStart));
+
+  return pow(sceneData->orbifoldInfo.r1, vsum(hexDist));
+}
+/*
+ *
+ *
+ *
+ *   typedef GenericVector2d<POV_INT64> IntVector2d;
+  typedef GenericVector3d<POV_INT64> IntVector3d;
+
+  const double SQRT_3 = 1.73205080757;
+
+  const Vector3d rayStart = (ray.Origin / sceneData->orbifoldInfo.scale);
+  const Vector3d rayEnd = (isect.IPoint / sceneData->orbifoldInfo.scale);
+
+  const Vector3d hexLatticeScale(2.0 * SQRT_3 / 3.0, 1.0, 2.0/SQRT_3);
+  const Vector3d rst = rayStart;
+  const Vector3d ret = rayEnd;
+
+  // Transposed coordinates
+  const Vector2d a(-rst.x() - (rst.z()/SQRT_3),
+                   -ret.x() - (ret.z()/SQRT_3));
+  const Vector2d a_bar(rst.x() - (rst.z()/SQRT_3),
+                       ret.x() - (ret.z()/SQRT_3));
+  const Vector2d b(2.0 * rst.z() / SQRT_3,
+                   2.0 * ret.z() / SQRT_3);
+
+  Vector2d a_rounded(round(a.x()), round(a.y()));
+  Vector2d a_bar_rounded(round(a_bar.x()), round(a_bar.y()));
+  Vector2d b_rounded(round(b.x()), round(b.y()));
+
+  Vector2d diff1 = a - a_rounded, diff2 = a_bar - a_bar_rounded, diff3 = b - b_rounded;
+
+  if(abs(diff1.x()) > abs(diff2.x()) && abs(diff1.x()) > abs(diff3.x())) {
+    a_rounded.x() = -a_bar_rounded.x() - b_rounded.x();
+  } else if (abs(diff2.x()) > abs(diff3.x())) {
+    a_bar_rounded.x() = -a_rounded.x() - b_rounded.x();
+  } else {
+    b_rounded.x() = -a_rounded.x() - a_bar_rounded.x();
+  }
+
+  if(abs(diff1.y()) > abs(diff2.y()) && abs(diff1.y()) > abs(diff3.y())) {
+    a_rounded.y() = -a_bar_rounded.y() - b_rounded.y();
+  } else if (abs(diff2.y()) > abs(diff3.y())) {
+    a_bar_rounded.y() = -a_rounded.y() - b_rounded.y();
+  } else {
+    b_rounded.y() = -a_rounded.y() - a_bar_rounded.y();
+  }
+
+  return pow(sceneData->orbifoldInfo.r1,
+             abs(a_rounded.x() - a_rounded.y()) +
+             abs(a_bar_rounded.x() - a_bar_rounded.y()) +
+             abs(b_rounded.x() - b_rounded.y()));
+
+
+
+
+ *   const IntVector2d a(floor(rayStart.x() + (rayStart.z() / SQRT_3)), floor(rayEnd.x() + (rayEnd.z() / SQRT_3)));
+  const IntVector2d a_bar(rayStart.x() - (rayStart.z() / SQRT_3), rayEnd.x() - (rayEnd.z() / SQRT_3));
+  const IntVector2d b(2 * rayStart.z() / SQRT_3, 2 * rayEnd.z() / SQRT_3);
+
+  const IntVector3d latticeStart(b.x(), a.x(), -a_bar.x());
+  const IntVector3d latticeEnd(b.y(), a.y(), -a_bar.y());
+
+  POV_INT64 n0 = 0, n1 = 0, n2 = 0;
+
+  const IntVector3d latticeDist(
+      abs(latticeStart.x() - latticeEnd.x()),
+      abs(latticeStart.y() - latticeEnd.y()),
+      abs(latticeStart.z() - latticeEnd.z()));
+
+  const IntVector3d latticeMod(latticeDist.x() % 2, latticeDist.y() % 2, latticeDist.z() % 2);
+ */
 } // end of namespace

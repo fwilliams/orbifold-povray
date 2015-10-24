@@ -36,6 +36,8 @@
 #ifndef POVRAY_CORE_VECTOR_H
 #define POVRAY_CORE_VECTOR_H
 
+#include <boost/math/special_functions/round.hpp>
+
 #include "core/configcore.h"
 
 #include "base/types.h"
@@ -655,6 +657,27 @@ inline GenericVector3d<T> max(GenericVector3d<T>& a, const GenericVector3d<T>& b
                                std::max(a[Z], std::max(b[Z], std::max(c[Z], d[Z]))) );
 }
 
+
+///@relates GenericVector3d
+template<typename T>
+inline GenericVector3d<T> vabs(const GenericVector3d<T>& a)
+{
+    return GenericVector3d<T>( std::abs(a[X]), std::abs(a[Y]), std::abs(a[Z]) );
+}
+
+///@relates GenericVector3d
+template<typename T>
+inline GenericVector3d<T> vround(const GenericVector3d<T>& a)
+{
+    return GenericVector3d<T>( boost::math::round(a[X]), boost::math::round(a[Y]), boost::math::round(a[Z]) );
+}
+
+///@relates GenericVector3d
+template<typename T>
+inline T vsum(const GenericVector3d<T>& a)
+{
+    return a[X] + a[Y] + a[Z];
+}
 }
 
 #endif // POVRAY_CORE_VECTOR_H
