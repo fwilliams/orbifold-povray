@@ -119,6 +119,11 @@ DocProject/Help/*.hhp
 DocProject/Help/Html2
 DocProject/Help/html
 
+# Eclipse IDE project
+.project
+.cproject
+.settings
+
 # Click-Once directory
 publish/
 
