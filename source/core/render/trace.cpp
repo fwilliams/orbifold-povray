@@ -3897,7 +3897,7 @@ Vector3d roundHexCoordinate(const Vector3d& hexCoord) {
 
 #define __HEX_COORD__(pt) Vector3d(-(pt).z() - ((pt).x()/SQRT_3), 2.0 * (pt).x() / SQRT_3, (pt).z() - ((pt).x()/SQRT_3))
 
-Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, const Vector2d& base) {
+Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, Vector2d& base) {
   const double SQRT_3 = 1.7320508075688772;
   const double HALF_SQRT_3 = 0.8660254037844386;
 
@@ -3905,23 +3905,33 @@ Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, const Vector2d&
   const Vector3d tPoint = point / scale;
   const Vector3d hexCoord = roundHexCoordinate(__HEX_COORD__(tPoint));
   const Vector2d hexXYPos(hexCoord.y() * HALF_SQRT_3, hexCoord.z() + hexCoord.y() * 0.5);
+  base = hexXYPos * Vector2d(scale.x(), scale.z());
 
   const Vector2d omega = Vector2d(-0.5, HALF_SQRT_3);
   const Vector2d omegaBar = Vector2d(-0.5, -HALF_SQRT_3);
 
-  Vector3d baseTriCoord = hexCoord.y() * Vector3d(-1, 1, -2) - hexCoord.x() * Vector3d(2, 1, 1);
+  const Vector3d baseTriCoord = hexCoord.y() * Vector3d(-1, 1, -2) - hexCoord.x() * Vector3d(2, 1, 1);
+  Vector3d retTriCoord = baseTriCoord;
 
   if(tPoint.z() > hexXYPos.y()) {
-    baseTriCoord.x() += 1;
+    retTriCoord.x() += 1;
   }
 
   if((tPoint.x() - hexXYPos.x())*omegaBar.y() - (tPoint.z() - hexXYPos.y())*omegaBar.x() > 0) {
-    baseTriCoord.z() += 1;
+    retTriCoord.z() += 1;
   }
 
   if((tPoint.x() - hexXYPos.x())*omega.y() - (tPoint.z() - hexXYPos.y())*omega.x() > 0) {
-    baseTriCoord.y() += 1;
+    retTriCoord.y() += 1;
   }
+
+  const Vector3d bt = retTriCoord - baseTriCoord;
+  if(bt.x() == 0 && bt.y() == 0 && bt.z() == 0) { type = 0; }
+  else if(bt.x() == 0 && bt.y() == 1 && bt.z() == 0) { type = 1; }
+  else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 0) { type = 2; }
+  else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 1) { type = 3; }
+  else if(bt.x() == 1 && bt.y() == 0 && bt.z() == 1) { type = 4; }
+  else if(bt.x() == 0 && bt.y() == 0 && bt.z() == 1) { type = 5; }
 
 //  string err0 = boost::to_string(tPoint.x()) + string(", ") + boost::to_string(tPoint.y()) + string(", ") + boost::to_string(tPoint.z()) + string("\n");
 //  string err1 = boost::to_string(hexCoord.x()) + string(", ") + boost::to_string(hexCoord.y()) + string(", ") + boost::to_string(hexCoord.z()) + string("\n");
@@ -3929,7 +3939,7 @@ Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, const Vector2d&
 //  string err3 = boost::to_string(baseTriCoord.x()) + string(", ") + boost::to_string(baseTriCoord.y()) + string(", ") + boost::to_string(baseTriCoord.z()) + string("\n");
 //  throw runtime_error(err0+err1+err2+err3);
 
-  return baseTriCoord;
+  return retTriCoord;
 }
 
 double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect)
@@ -3937,28 +3947,11 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
   const double SQRT_3 = 1.7320508075688772;
   const double HALF_SQRT_3 = 0.8660254037844386;
 
-//  const Vector3d scale = Vector3d(3.0/SQRT_3, 1.0, SQRT_3) * sceneData->orbifoldInfo.scale.x();
-//
-//  const Vector3d offset1 = Vector3d(0, 0, 0);
-//  const Vector3d offset2 = Vector3d(-0.5, 0, -SQRT_3/2.0) / scale;
-//  const Vector3d offset3 = Vector3d(0.5, 0, -SQRT_3/2.0) / scale;
-//
-//  const Vector3d rayStart = ray.Origin / scale;
-//  const Vector3d rayEnd = isect.IPoint / scale;
-//
-//  const Vector3d c1 = roundHexCoordinate(__HEX_COORD__(rayStart+offset1)) - roundHexCoordinate(__HEX_COORD__(rayEnd+offset1));
-//  const Vector3d c2 = roundHexCoordinate(__HEX_COORD__(rayStart+offset2)) - roundHexCoordinate(__HEX_COORD__(rayEnd+offset2));
-//  const Vector3d c3 = roundHexCoordinate(__HEX_COORD__(rayStart+offset3)) - roundHexCoordinate(__HEX_COORD__(rayEnd+offset3));
-//
-//  const float hexDist1 = vsum(vabs(c1))/2.0;
-//  const float hexDist2 = vsum(vabs(c2))/2.0;
-//  const float hexDist3 = vsum(vabs(c3))/2.0;
-
-
   struct ltri {
     Vector2d corners[3];
     Vector3d coorddiffs[3];
     Vector2d posdiffs[3];
+    Vector3d mAdd[3];
     unsigned next_type[3];
   };
   const unsigned next_m[3] = {0, 2, 1};
@@ -3968,61 +3961,75 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
         {Vector2d(0, 0), Vector2d(-0.5, -HALF_SQRT_3), Vector2d(0.5, -HALF_SQRT_3)},
         {Vector3d(0, 0, 1), Vector3d(-1, 0, 0), Vector3d(0, 1, 0)},
         {Vector2d(0, 0), Vector2d(0, -SQRT_3), Vector2d(0, 0)},
+        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)}, // Blue, Orange, Green
         {5, 3, 1},
       },
       ltri{ // 1 - (0, 1, 0)
         {Vector2d(0, 0), Vector2d(0.5, -HALF_SQRT_3),  Vector2d(1, 0)},
         {Vector3d(0, -1, 0), Vector3d(0, 0, -1), Vector3d(1, 0, 0)},
         {Vector2d(0, 0), Vector2d(1.5, -HALF_SQRT_3), Vector2d(0, 0)},
+        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
         {0, 4, 2}
       },
       ltri{ // 2 - (1, 1, 0)
         {Vector2d(0, 0), Vector2d(1, 0), Vector2d(0.5, HALF_SQRT_3)},
         {Vector3d(-1, 0, 0), Vector3d(0, 1, 0), Vector3d(0, 0, 1)},
         {Vector2d(0, 0), Vector2d(1.5, HALF_SQRT_3), Vector2d(0, 0)},
+        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)},
         {1, 5, 3},
       },
       ltri{ // 3 - (1, 1, 1)
         {Vector2d(0, 0), Vector2d(0.5, HALF_SQRT_3), Vector2d(-0.5, HALF_SQRT_3)},
         {Vector3d(0, 0, -1), Vector3d(1, 0, 0), Vector3d(0, -1, 0)},
         {Vector2d(0, 0), Vector2d(0, SQRT_3), Vector2d(0, 0)},
+        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
         {2, 0, 4},
       },
       ltri{ // 4 - (1, 0, 1)
         {Vector2d(0, 0), Vector2d(-0.5, HALF_SQRT_3), Vector2d(-1, 0)},
         {Vector3d(0, 1, 0), Vector3d(0, 0, 1), Vector3d(-1, 0, 0)},
         {Vector2d(0, 0), Vector2d(-1.5, HALF_SQRT_3), Vector2d(0, 0)},
+        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)},
         {3, 1, 5},
       },
       ltri{ // 5 - (0, 0, 1)
         {Vector2d(0, 0), Vector2d(-1, 0), Vector2d(-0.5, -HALF_SQRT_3)},
         {Vector3d(1, 0, 0), Vector3d(0, -1, 0), Vector3d(0, 0, -1)},
         {Vector2d(0, 0), Vector2d(-1.5, -HALF_SQRT_3), Vector2d(0, 0)},
+        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
         {4, 2, 0},
       }};
 
 
-  const Vector3d rayStart(0, 0, -SQRT_3/4);
-  const Vector3d rayEnd (2.05, 0, 3*SQRT_3/4);
+  unsigned m1 = 0, m2 = 0, m3 = 0;
+
+//  const Vector3d rayEnd(0, 0, -SQRT_3/4);
+//  const Vector3d rayStart(2.05, 0, 3*SQRT_3/4);
+
+  const Vector3d ctrTx(0, 0, -SQRT_3/4);
+  const Vector3d rayStart = ctrTx + ray.Origin / sceneData->orbifoldInfo.scale;
+  const Vector3d rayEnd = ctrTx + isect.IPoint / sceneData->orbifoldInfo.scale;
 
   unsigned type = 0; // Index of the current triangle type in the jump table
   unsigned m = 0;    // Index of the base vertex of the edge under consideration
   Vector2d basePos(0, 0);
   const Vector3d triEnd = triCoordForPoint(rayEnd, type, basePos); // Triangle coordinages of the end of the path
+  const Vector3d triStart = triCoordForPoint(rayStart, type, basePos);
   const Vector2d d(rayEnd.x() - rayStart.x(), rayEnd.z() - rayStart.z()); // The direction of the ray
   const Vector2d P(rayStart.x(), rayStart.z());                           // The start position of the ray
+  Vector3d current =  triStart; // Triangle coordinate of the current triangle
 
-  Vector3d current = triCoordForPoint(rayStart, type, basePos); // Triangle coordinate of the current triangle
+//  string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
+//  dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
+//  dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
+//  dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
+//
+//  dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
 
-  string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
-  dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
-  dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
-  dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
-
-  dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
-
+  // TODO: Get rid of bailout
   unsigned bailout = 0;
-  const unsigned MAX_BAILOUT = 20;
+  const unsigned MAX_BAILOUT = 100;
+
   while(bailout < MAX_BAILOUT && !(current.x() == triEnd.x() && current.y() == triEnd.y() && current.z() == triEnd.z())) {
     // Check each mirror for intersection
     for(unsigned i = 0; i < 3; i++) {
@@ -4031,29 +4038,43 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
       const Vector2d v = B-A;
       const double alpha = (d.y()*(A.x()-P.x()) - d.x()*(A.y()-P.y()))/(d.x()*v.y() - d.y()*v.x());
       const double beta = (A.x() - P.x() + v.x()*alpha)/d.x();
-//      dbg_out += string("  checking ") + boost::to_string(m) + string(" alpha is ") +
-//                 boost::to_string(alpha) + string(" beta is ") + boost::to_string(beta) +
-//                 string(" A is ") + boost::to_string(A.x()) + string(", ") + boost::to_string(A.y()) +
-//                 string(" B is ") + boost::to_string(B.x()) + string(", ") + boost::to_string(B.y()) +
-//                 string(" v is ") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string("\n");
-      if(alpha >= 0.0 && alpha <= 1.0 && beta >= 0) {
-//        dbg_out += string("  alpha success: ") + boost::to_string(alpha) + string(" & ") + boost::to_string(beta) + string("\n");
-        unsigned mm = m;
-        m = next_m[mm];
-        current += jmptable[type].coorddiffs[mm];
-        basePos += jmptable[type].posdiffs[mm];
-        type = jmptable[type].next_type[mm];
-        dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
-        break;
+
+      if(beta >= 0) { // If the intersection is forward along the ray
+        if(alpha >= 0.0 && alpha <= 1.0) {
+          unsigned mm = m;
+          m = next_m[mm];
+          current += jmptable[type].coorddiffs[mm];
+          basePos += jmptable[type].posdiffs[mm];
+          type = jmptable[type].next_type[mm];
+          m1 += jmptable[type].mAdd[mm].x();
+          m2 += jmptable[type].mAdd[mm].y();
+          m3 += jmptable[type].mAdd[mm].z();
+//          dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
+          break;
+        }
       }
       m = (m + 1) % 3;
     }
     bailout += 1;
   }
+  if(bailout == MAX_BAILOUT) {
+    string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
+    dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
+    dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
+    dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
+    throw runtime_error(dbg_out);
+  }
 
-  throw runtime_error(dbg_out);
+  return pow(sceneData->orbifoldInfo.r1, m1) * pow(sceneData->orbifoldInfo.r2, m2) * pow(sceneData->orbifoldInfo.r3, m3);
+  //        dbg_out += string("  alpha success: ") + boost::to_string(alpha) + string(" & ") + boost::to_string(beta) + string("\n");
+  //      dbg_out += string("  checking ") + boost::to_string(m) + string(" alpha is ") +
+  //                 boost::to_string(alpha) + string(" beta is ") + boost::to_string(beta) +
+  //                 string(" A is ") + boost::to_string(A.x()) + string(", ") + boost::to_string(A.y()) +
+  //                 string(" B is ") + boost::to_string(B.x()) + string(", ") + boost::to_string(B.y()) +
+  //                 string(" v is ") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string("\n");
 
-  return 1.0; //pow(sceneData->orbifoldInfo.r1, hexDist1) * pow(sceneData->orbifoldInfo.r2, hexDist2) * pow(sceneData->orbifoldInfo.r3, hexDist3);
+//  throw runtime_error(dbg_out);
+
 }
 #undef __HEX_COORD__
 
