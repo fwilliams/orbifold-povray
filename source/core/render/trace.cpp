@@ -3942,6 +3942,37 @@ Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, Vector2d& base)
   return retTriCoord;
 }
 
+bool intersectLines(const Vector2d& P1, const Vector2d& v1, const Vector2d& P2, const Vector2d& v2, double& alpha1, double& alpha2) {
+  const double num = (v2.y()*(P1.x()-P2.x()) - v2.x()*(P1.y()-P2.y()));
+  const double denom = (v2.x()*v1.y() - v2.y()*v1.x());
+
+  if(denom == 0) {
+    alpha1 = alpha2 = INFINITY;
+    return num == 0;
+  }
+
+  alpha1 = num/denom;
+  if(v2.x() != 0) {
+    alpha2 = (P1.x() - P2.x() + v1.x()*alpha1)/v2.x();
+  } else {
+    alpha2 = (P1.y() - P2.y() + v1.y()*alpha1)/v2.y();
+  }
+
+  return true;
+
+  /*  const Vector2d A = jmptable[type].corners[m] + basePos;
+      const Vector2d B = jmptable[type].corners[(m+1)%3] + basePos;
+      const Vector2d v = B-A;
+      const double alpha = (d.y()*(A.x()-P.x()) - d.x()*(A.y()-P.y()))/(d.x()*v.y() - d.y()*v.x());
+      double beta;
+      if(d.x() != 0) {
+        beta = (A.x() - P.x() + v.x()*alpha)/d.x();
+      } else {
+        beta = (A.y() - P.y() + v.y()*alpha)/d.y();
+      }
+   */
+}
+
 double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect)
 {
   const double SQRT_3 = 1.7320508075688772;
@@ -3954,8 +3985,8 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
     Vector3d mAdd[3];
     unsigned next_type[3];
   };
-  const unsigned next_m[3] = {0, 2, 1};
 
+  const unsigned next_m[3] = {0, 2, 1};
   const ltri jmptable[6] = {
       ltri{ // 0 - (0, 0, 0)
         {Vector2d(0, 0), Vector2d(-0.5, -HALF_SQRT_3), Vector2d(0.5, -HALF_SQRT_3)},
@@ -4003,12 +4034,12 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
 
   unsigned m1 = 0, m2 = 0, m3 = 0;
 
-//  const Vector3d rayEnd(0, 0, -SQRT_3/4);
-//  const Vector3d rayStart(2.05, 0, 3*SQRT_3/4);
+  const Vector3d rayStart(0, 0, 0.0569873);
+  const Vector3d rayEnd(0, 0.425003, -2.16542);
 
-  const Vector3d ctrTx(0, 0, -SQRT_3/4);
-  const Vector3d rayStart = ctrTx + ray.Origin / sceneData->orbifoldInfo.scale;
-  const Vector3d rayEnd = ctrTx + isect.IPoint / sceneData->orbifoldInfo.scale;
+//  const Vector3d ctrTx(0, 0, -SQRT_3/4);
+//  const Vector3d rayStart = ctrTx + ray.Origin / sceneData->orbifoldInfo.scale;
+//  const Vector3d rayEnd = ctrTx + isect.IPoint / sceneData->orbifoldInfo.scale;
 
   unsigned type = 0; // Index of the current triangle type in the jump table
   unsigned m = 0;    // Index of the base vertex of the edge under consideration
@@ -4019,12 +4050,14 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
   const Vector2d P(rayStart.x(), rayStart.z());                           // The start position of the ray
   Vector3d current =  triStart; // Triangle coordinate of the current triangle
 
-//  string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
-//  dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
-//  dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
-//  dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
-//
-//  dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
+  string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
+  dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
+  dbg_out += string("rayStart = ") + boost::to_string(rayStart.x()) + string(", ") + boost::to_string(rayStart.y())  + string(", ") +  boost::to_string(rayStart.z()) + string("\n");
+  dbg_out += string("rayEnd = ") + boost::to_string(rayEnd.x()) + string(", ") + boost::to_string(rayEnd.y())  + string(", ") +  boost::to_string(rayEnd.z()) + string("\n");
+  dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
+  dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
+
+  dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
 
   // TODO: Get rid of bailout
   unsigned bailout = 0;
@@ -4036,12 +4069,20 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
       const Vector2d A = jmptable[type].corners[m] + basePos;
       const Vector2d B = jmptable[type].corners[(m+1)%3] + basePos;
       const Vector2d v = B-A;
-      const double alpha = (d.y()*(A.x()-P.x()) - d.x()*(A.y()-P.y()))/(d.x()*v.y() - d.y()*v.x());
-      const double beta = (A.x() - P.x() + v.x()*alpha)/d.x();
 
-      if(beta >= 0) { // If the intersection is forward along the ray
-        if(alpha >= 0.0 && alpha <= 1.0) {
+      double alpha, beta;
+      bool isect = intersectLines(A, v, P, d, alpha, beta);
+
+      retry_alpha:
+      if(!isect) {
+        continue;
+      } else if(beta > 0.0) { // Maybe there's an intersection
+
+//        dbg_out += string("  ISECT: alpha = ") + boost::to_string(alpha) + string(", beta = ") + boost::to_string(beta) + string("\n");
+
+        if(alpha > 0.0 && alpha < 1.0) { // Check if there is a proper intersection
           unsigned mm = m;
+
           m = next_m[mm];
           current += jmptable[type].coorddiffs[mm];
           basePos += jmptable[type].posdiffs[mm];
@@ -4049,21 +4090,35 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
           m1 += jmptable[type].mAdd[mm].x();
           m2 += jmptable[type].mAdd[mm].y();
           m3 += jmptable[type].mAdd[mm].z();
-//          dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
+
           break;
+        } else if(alpha == 0.0 || alpha == 1.0) {
+          isect = intersectLines(A, v, P, d - v.x()*0.001, alpha, beta);
+//          dbg_out += string("  RETRY\n");
+          goto retry_alpha;
         }
+//        dbg_out += string(" FINITO BANDITO\n");
+      } else if(alpha == INFINITY) { // The two lines are the same
+        throw runtime_error("TODO: handle intersection of the same line!");
+      } else {
+//        dbg_out += string("  BAD BETA\n");
       }
       m = (m + 1) % 3;
     }
+
+    dbg_out += string("(") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("), type = ") +
+               boost::to_string(type) + string(", m = ") + boost::to_string(m) + string(", bailout = ") + boost::to_string(bailout) + string("\n");
+//    if(bailout == 4) {
+//      throw runtime_error(dbg_out);
+//    }
     bailout += 1;
   }
+
   if(bailout == MAX_BAILOUT) {
-    string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
-    dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
-    dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
-    dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
+    dbg_out += string("Bailout!\n");
     throw runtime_error(dbg_out);
   }
+  throw runtime_error(dbg_out);
 
   return pow(sceneData->orbifoldInfo.r1, m1) * pow(sceneData->orbifoldInfo.r2, m2) * pow(sceneData->orbifoldInfo.r3, m3);
   //        dbg_out += string("  alpha success: ") + boost::to_string(alpha) + string(" & ") + boost::to_string(beta) + string("\n");
