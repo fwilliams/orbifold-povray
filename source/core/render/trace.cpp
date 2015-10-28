@@ -3895,15 +3895,15 @@ Vector3d roundHexCoordinate(const Vector3d& hexCoord) {
   return r;
 }
 
-#define __HEX_COORD__(pt) Vector3d(-(pt).z() - ((pt).x()/SQRT_3), 2.0 * (pt).x() / SQRT_3, (pt).z() - ((pt).x()/SQRT_3))
-
 Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, Vector2d& base) {
   const double SQRT_3 = 1.7320508075688772;
   const double HALF_SQRT_3 = 0.8660254037844386;
 
   const Vector3d scale = Vector3d(3.0/SQRT_3, 1.0, SQRT_3);
   const Vector3d tPoint = point / scale;
+#define __HEX_COORD__(pt) Vector3d(-(pt).z() - ((pt).x()/SQRT_3), 2.0 * (pt).x() / SQRT_3, (pt).z() - ((pt).x()/SQRT_3))
   const Vector3d hexCoord = roundHexCoordinate(__HEX_COORD__(tPoint));
+#undef __HEX_COORD__
   const Vector2d hexXYPos(hexCoord.y() * HALF_SQRT_3, hexCoord.z() + hexCoord.y() * 0.5);
   base = hexXYPos * Vector2d(scale.x(), scale.z());
 
@@ -3932,12 +3932,6 @@ Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, Vector2d& base)
   else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 1) { type = 3; }
   else if(bt.x() == 1 && bt.y() == 0 && bt.z() == 1) { type = 4; }
   else if(bt.x() == 0 && bt.y() == 0 && bt.z() == 1) { type = 5; }
-
-//  string err0 = boost::to_string(tPoint.x()) + string(", ") + boost::to_string(tPoint.y()) + string(", ") + boost::to_string(tPoint.z()) + string("\n");
-//  string err1 = boost::to_string(hexCoord.x()) + string(", ") + boost::to_string(hexCoord.y()) + string(", ") + boost::to_string(hexCoord.z()) + string("\n");
-//  string err2 = boost::to_string(hexXYPos.x()) + string(", ") + boost::to_string(hexXYPos.y()) + string("\n");
-//  string err3 = boost::to_string(baseTriCoord.x()) + string(", ") + boost::to_string(baseTriCoord.y()) + string(", ") + boost::to_string(baseTriCoord.z()) + string("\n");
-//  throw runtime_error(err0+err1+err2+err3);
 
   return retTriCoord;
 }
@@ -3977,7 +3971,10 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
     unsigned next_type[3];
   };
 
-  const unsigned next_m[3] = {0, 2, 1};
+  const unsigned next_m[3] = {0, 2, 1}; // The next mirror index based on the current index
+  // Lookup table for mirror intersection information
+  // Given a mirror and tile, the jump table tells us which tile is adjacent and how to update the position
+  // and triangle coordinates as we march along a path
   const ltri jmptable[6] = {
       ltri{ // 0 - (0, 0, 0)
         {Vector2d(0, 0), Vector2d(-0.5, -HALF_SQRT_3), Vector2d(0.5, -HALF_SQRT_3)},
@@ -4022,58 +4019,42 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
         {4, 2, 0},
       }};
 
-
+  // The mirror intersection counters. Count the number of each type of mirror a path intersects
   unsigned m1 = 0, m2 = 0, m3 = 0;
 
-//  const Vector3d rayStart(0, 0, 0.0569873);
-//  const Vector3d rayEnd(-9.66821e-17, 0.448615, -3.01142);
-
+  // Make the center at the middle of the fundamental domain, and normalize the ray to unit length mirrors
   const Vector3d ctrTx(0, 0, -SQRT_3/4);
   const Vector3d rayStart = ctrTx + ray.Origin / sceneData->orbifoldInfo.scale;
   const Vector3d rayEnd = ctrTx + isect.IPoint / sceneData->orbifoldInfo.scale;
 
   unsigned type = 0; // Index of the current triangle type in the jump table
-  unsigned m = 0;    // Index of the base vertex of the edge under consideration
-  Vector2d basePos(0, 0);
-  const Vector3d triEnd = triCoordForPoint(rayEnd, type, basePos); // Triangle coordinages of the end of the path
-  const Vector3d triStart = triCoordForPoint(rayStart, type, basePos);
+  unsigned m = 0; // Index of the base vertex of the edge under consideration
+  Vector2d basePos(0, 0); // Offset of the mirror under consideration
+  const Vector3d triEnd = triCoordForPoint(rayEnd, type, basePos); // Triangle coordinates of the end of the path
+  const Vector3d triStart = triCoordForPoint(rayStart, type, basePos); // Triangle coordinates of the beginning of the path
   const Vector2d d(rayEnd.x() - rayStart.x(), rayEnd.z() - rayStart.z()); // The direction of the ray
-  const Vector2d P(rayStart.x(), rayStart.z());                           // The start position of the ray
+  const Vector2d P(rayStart.x(), rayStart.z()); // The start position of the ray
   Vector3d current =  triStart; // Triangle coordinate of the current triangle
 
-//  string dbg_out = string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string(") -> ");
-//  dbg_out +=  string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n");
-//  dbg_out += string("rayStart = ") + boost::to_string(rayStart.x()) + string(", ") + boost::to_string(rayStart.y())  + string(", ") +  boost::to_string(rayStart.z()) + string("\n");
-//  dbg_out += string("rayEnd = ") + boost::to_string(rayEnd.x()) + string(", ") + boost::to_string(rayEnd.y())  + string(", ") +  boost::to_string(rayEnd.z()) + string("\n");
-//  dbg_out += string("d = ") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string("\n");
-//  dbg_out += string("p = ") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string("\n\n");
-//
-//  dbg_out += boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("\n");
-
-
-//  unsigned bo = 0;
-//  const unsigned MAX_BO = 2;
-
-  while(/*bo < MAX_BO &&*/ !(current.x() == triEnd.x() && current.y() == triEnd.y() && current.z() == triEnd.z())) {
-    // Check each mirror for intersection
-    for(unsigned i = 0; i < 3; i++) {
+  // While we haven't reached the triangle coordinate for the end of the path
+  while(!(current.x() == triEnd.x() && current.y() == triEnd.y() && current.z() == triEnd.z())) {
+    for(unsigned i = 0; i < 3; i++) { // Check each mirror for intersection
+      // Note that the jump table is set up so m never corresponds to the mirror we just came from
       const Vector2d A = jmptable[type].corners[m] + basePos;
       const Vector2d B = jmptable[type].corners[(m+1)%3] + basePos;
       const Vector2d v = B-A;
 
+      // Find the intersection of the mirror and the path
       double alpha, beta;
       bool isect = intersectLines(A, v, P, d, alpha, beta);
 
-      //unsigned bailout = 0;
       retry_alpha:
       if(!isect) {
-        //dbg_out += string("  NO ISECT: alpha = ") + boost::to_string(alpha) + string(", beta = ") + boost::to_string(beta) + string("\n");
         continue;
-      } else if(beta > 0.0) { // Maybe there's an intersection
-        //dbg_out += string("  ISECT: alpha = ") + boost::to_string(alpha) + string(", beta = ") + boost::to_string(beta) + string("\n");
-        if(alpha > 0.0 && alpha < 1.0) { // Check if there is a proper intersection
+      } else if(beta > 0.0) { // If the intersection lies on the path in front of the start point
+        if(alpha > 0.0 && alpha < 1.0) { // If the path intersects the mirror not at one of the endpoints
+          // Use the jump table to update the intersection counters and move to the next tile
           unsigned mm = m;
-
           m = next_m[mm];
           current += jmptable[type].coorddiffs[mm];
           basePos += jmptable[type].posdiffs[mm];
@@ -4081,63 +4062,21 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
           m1 += jmptable[type].mAdd[mm].x();
           m2 += jmptable[type].mAdd[mm].y();
           m3 += jmptable[type].mAdd[mm].z();
-
-//          dbg_out += string("  SUCCESS!\n");
-
           break;
-        } else if(alpha == 0.0 || alpha == 1.0) { // The intersection is abiguous, perturb the ray and retry to get the right one
+        } else if(alpha == 0.0 || alpha == 1.0) { // The path intersects one of the endpoints of the mirror
+          // Perturb the ray direction a little and try again
           isect = intersectLines(A, v, P, d - v.x()*0.001/beta, alpha, beta);
-//          dbg_out += string("  RETRY\n");
-//          if(bailout == 10) {
-//            throw runtime_error(
-//                string("1 - probable infinite loop ") + string("trace: (") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) +
-//                string(") -> ") +
-//                string("(") + boost::to_string(triEnd.x()) + string(", ") + boost::to_string(triEnd.y()) + string(", ") + boost::to_string(triEnd.z()) + string(")\n") +
-//                string("rayStart = ") + boost::to_string(rayStart.x()) + string(", ") + boost::to_string(rayStart.y())  + string(", ") +  boost::to_string(rayStart.z()) + string("\n") +
-//                string("rayEnd = ") + boost::to_string(rayEnd.x()) + string(", ") + boost::to_string(rayEnd.y())  + string(", ") +  boost::to_string(rayEnd.z()) + string("\n"));
-//          }
-//          bailout += 1;
           goto retry_alpha;
         }
 
-      } else if(alpha == INFINITY) { // The two lines are the same
+      } else if(alpha == INFINITY) { // The path and the share more than one point in common
         throw runtime_error("TODO: handle intersection of the same line!");
-      } else {
-//        dbg_out += string("  BAD BETA: alpha = ") + boost::to_string(alpha) + string(", beta = ") + boost::to_string(beta) + string("\n");
-//        dbg_out += string("A = (") + boost::to_string(A.x()) + string(", ") + boost::to_string(A.y()) + string(")\n");
-//        dbg_out += string("v = (") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(")\n");
-//        dbg_out += string("P = (") + boost::to_string(P.x()) + string(", ") + boost::to_string(P.y()) + string(")\n");
-//        dbg_out += string("d = (") + boost::to_string(d.x()) + string(", ") + boost::to_string(d.y()) + string(")\n");
       }
       m = (m + 1) % 3;
     }
-//    bo += 1;
-
-
-//    dbg_out += string("(") + boost::to_string(current.x()) + string(", ") + boost::to_string(current.y()) + string(", ") + boost::to_string(current.z()) + string("), type = ") +
-//               boost::to_string(type) + string(", m = ") + boost::to_string(m) + string(", bailout = ") + boost::to_string(bo) + string("\n");
   }
 
-//  if(bo == MAX_BO) {
-//    throw runtime_error(dbg_out);
-//  }
-//  if(bailout == MAX_BAILOUT) {
-//    dbg_out += string("Bailout!\n");
-//    throw runtime_error(dbg_out);
-//  }
-//  throw runtime_error(dbg_out);
-
   return pow(sceneData->orbifoldInfo.r1, m1) * pow(sceneData->orbifoldInfo.r2, m2) * pow(sceneData->orbifoldInfo.r3, m3);
-  //        dbg_out += string("  alpha success: ") + boost::to_string(alpha) + string(" & ") + boost::to_string(beta) + string("\n");
-  //      dbg_out += string("  checking ") + boost::to_string(m) + string(" alpha is ") +
-  //                 boost::to_string(alpha) + string(" beta is ") + boost::to_string(beta) +
-  //                 string(" A is ") + boost::to_string(A.x()) + string(", ") + boost::to_string(A.y()) +
-  //                 string(" B is ") + boost::to_string(B.x()) + string(", ") + boost::to_string(B.y()) +
-  //                 string(" v is ") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string("\n");
-
-//  throw runtime_error(dbg_out);
-
 }
-#undef __HEX_COORD__
 
 } // end of namespace
