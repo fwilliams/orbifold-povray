@@ -204,6 +204,8 @@ DBL PhotonTrace::TraceRay(Ray& ray, MathColour& colour, ColourChannel&, COLC wei
         ColourChannel dummyTransm;
         ComputeTextureColour(bestisect, colour, dummyTransm, ray, weight, true);
 
+        colour *= ComputeOrbifoldAttenuation(ray, bestisect);
+
         // NK phmap
         threadData->passThruThis = threadData->passThruPrev;
         threadData->passThruPrev = oldptflag;
