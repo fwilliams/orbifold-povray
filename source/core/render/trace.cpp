@@ -159,10 +159,12 @@ double Trace::TraceRay(Ray& ray, MathColour& colour, ColourChannel& transm, COLC
 
         if (ray.GetTicket().radiosityImportanceFound < ray.GetTicket().radiosityImportanceQueried)
         {
-            if(found == false)
+            if(found == false) {
                 return HUGE_VAL;
-            else
+            } else {
+                colour *= ComputeOrbifoldAttenuation(ray, bestisect);
                 return bestisect.Depth;
+            }
         }
     }
     float oldRadiosityImportanceQueried = ray.GetTicket().radiosityImportanceQueried;
@@ -212,12 +214,13 @@ double Trace::TraceRay(Ray& ray, MathColour& colour, ColourChannel& transm, COLC
     ray.GetTicket().radiosityImportanceQueried = oldRadiosityImportanceQueried;
 
     // Attenuate the output color based on the orbifold structure of the scene
-    colour *= ComputeOrbifoldAttenuation(ray, bestisect);
 
-    if(found == false)
+    if(found == false) {
         return HUGE_VAL;
-    else
+    } else {
+        colour *= ComputeOrbifoldAttenuation(ray, bestisect);
         return bestisect.Depth;
+    }
 }
 
 bool Trace::FindIntersection(Intersection& bestisect, const Ray& ray)
@@ -4031,15 +4034,6 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
   // The mirror intersection counters. Count the number of each type of mirror a path intersects
   unsigned m1 = 0, m2 = 0, m3 = 0;
 
-//  const Vector3d rayStart(0.426445, 0.5, 1.33224);
-//  const Vector3d rayEnd(0.715121, -0.5, 1.83224);
-//
-//  const Vector3d rayStart(-0.0951585, 0.5, 1.19733);
-//  const Vector3d rayEnd(0.193517, -0.5, 1.69733);
-
-//  const Vector3d rayStart(0.070889, 0.5, 1.13803);
-//  const Vector3d rayEnd(0.359564, -0.5, 1.63803);
-
   // Make the center at the middle of the fundamental domain, and normalize the ray to unit length mirrors
   const Vector3d ctrTx(0, 0, -SQRT_3/4);
   const Vector3d rayStart = ctrTx + ray.Origin / sceneData->orbifoldInfo.scale;
@@ -4054,6 +4048,7 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
   const Vector2d P(rayStart.x(), rayStart.z()); // The start position of the ray
   Vector3d current =  triStart; // Triangle coordinate of the current triangle
 
+  // FIXME: Heisenbug when running radiosity requires bailout to breakout of an infinite loop
   unsigned bailout = 0;
   const unsigned MAX_BAILOUT = 100000000;
 
@@ -4097,17 +4092,6 @@ double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection&
     }
     bailout += 1;
   }
-
-//  if(bailout == MAX_BAILOUT) {
-//    string dbg_str = vec3dToString(rayStart) + string(" -> ") + vec3dToString(rayEnd) + string("\n");
-//    dbg_str += string("reached bailout = ") + boost::to_string(bailout) + string("\n");
-//    dbg_str += string("hs = ") + vec3dToString(triStart) + string(" -> ") + vec3dToString(triEnd) + string("\n");
-//    throw runtime_error(dbg_str);
-//  }
-//  string dbg_str = vec3dToString(rayStart) + string(" -> ") + vec3dToString(rayEnd) + string("\n");
-//  dbg_str += string("reached bailout = ") + boost::to_string(bailout) + string("\n");
-//  dbg_str += string("hs = ") + vec3dToString(triStart) + string(" -> ") + vec3dToString(triEnd) + string("\n");
-//  throw runtime_error(dbg_str);
 
   return pow(sceneData->orbifoldInfo.r1, m1) * pow(sceneData->orbifoldInfo.r2, m2) * pow(sceneData->orbifoldInfo.r3, m3);
 }
