@@ -42,11 +42,22 @@ enum OrbifoldType {
 };
 
 
+struct OrbifoldDirection {
+  Vector2d o, m, base;
+  double v_sep, h_sep;
+  double offsetArray[2];
+  unsigned indexArray[3];
+  unsigned numOffsets, numMirrors;
+};
+
 struct OrbifoldInfo {
   OrbifoldType type;
   Vector3d scale;
   float r1, r2, r3, r4;
+  OrbifoldDirection mirrorDirs[4];
 };
+
+void initOrbifoldX333(OrbifoldInfo& info);
 
 }
 

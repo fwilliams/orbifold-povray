@@ -7039,6 +7039,7 @@ void Parser::Parse_Global_Settings()
                     sceneData->orbifoldInfo.r2 = Parse_Float();
                     Parse_Comma();
                     sceneData->orbifoldInfo.r3 = Parse_Float();
+                    initOrbifoldX333(sceneData->orbifoldInfo);
 
                 END_CASE
 

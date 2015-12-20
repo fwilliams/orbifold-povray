@@ -3817,6 +3817,7 @@ void Trace::ComputeSubsurfaceScattering(const FINISH *Finish, const MathColour& 
 }
 
 
+
 double Trace::ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
 {
   switch(sceneData->orbifoldInfo.type) {
@@ -3826,9 +3827,49 @@ double Trace::ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& ise
     return ComputeX2222OrbifoldAttenuation(ray, isect);
   case X333:
     return ComputeX333OrbifoldAttenuation(ray, isect);
+  case XX:
+    return ComputeXXOrbifoldAttenuation(ray, isect);
   default:
     throw runtime_error("balls to you!");
   }
+}
+
+double Trace::ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
+{
+  typedef GenericVector2d<POV_INT64> IntVector2d;
+
+  const Vector3d rayStart = ray.Origin / sceneData->orbifoldInfo.scale;
+  const Vector3d rayEnd = isect.IPoint / sceneData->orbifoldInfo.scale;
+
+  const POV_INT64 latticeStart = floor(rayStart.z() + 0.5);
+  const POV_INT64 latticeEnd = floor(rayEnd.z() + 0.5);
+  const POV_INT64 latticeDist = abs(latticeStart - latticeEnd);
+
+  // Bail out if the ray doesn't attenuate
+  if(latticeDist == 0) {
+    return 1.0;
+  }
+
+  // Whether we're starting from even and odd indices in x and y
+  const POV_INT64 latticeMod = latticeStart % 2;
+
+  // Mirror vector is (left, top, right, bottom)
+  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+  POV_INT64 x1 = latticeDist / 2;
+  POV_INT64 x2 = latticeDist - x1;
+
+  // Even and going backwards (-) or odd and going forwards (+)
+  if((latticeMod == 0 && latticeStart > latticeEnd) ||
+     (latticeMod == 1 && latticeStart < latticeEnd)) {
+    n0 = x2;
+    n1 = x1;
+  } else if(latticeDist != 0) { // Even and going right (+) or Odd and going left (-)
+    n0 = x1;
+    n1 = x2;
+  }
+
+  return pow(sceneData->orbifoldInfo.r1, (double)n0) *
+         pow(sceneData->orbifoldInfo.r2, (double)n1);
 }
 
 double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
@@ -3883,12 +3924,8 @@ double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection
          pow(sceneData->orbifoldInfo.r4, (double)n3);
 }
 
-double Trace::ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
+Vector3d roundHexCoordinate(const Vector3d& hexCoord)
 {
-  return 1.0;
-}
-
-Vector3d roundHexCoordinate(const Vector3d& hexCoord) {
   Vector3d r = vround(hexCoord);
   Vector3d diff = vabs(hexCoord - r);
 
@@ -3970,130 +4007,284 @@ string vec3dToString(const Vector3d& v) {
   return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(", ") + boost::to_string(v.z()) + string(")");
 }
 
-double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
-{
-  const double SQRT_3 = 1.7320508075688772;
-  const double HALF_SQRT_3 = 0.8660254037844386;
+string vec2dToString(const Vector2d& v) {
+  return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(")");
+}
 
-  struct ltri {
-    Vector2d corners[3];
-    Vector3d coorddiffs[3];
-    Vector2d posdiffs[3];
-    Vector3d mAdd[3];
-    unsigned next_type[3];
-  };
 
-  const unsigned next_m[3] = {0, 2, 1}; // The next mirror index based on the current index
-  // Lookup table for mirror intersection information
-  // Given a mirror and tile, the jump table tells us which tile is adjacent and how to update the position
-  // and triangle coordinates as we march along a path
-  const ltri jmptable[6] = {
-      ltri{ // 0 - (0, 0, 0)
-        {Vector2d(0, 0), Vector2d(-0.5, -HALF_SQRT_3), Vector2d(0.5, -HALF_SQRT_3)},
-        {Vector3d(0, 0, 1), Vector3d(-1, 0, 0), Vector3d(0, 1, 0)},
-        {Vector2d(0, 0), Vector2d(0, -SQRT_3), Vector2d(0, 0)},
-        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)}, // Blue, Orange, Green
-        {5, 3, 1},
-      },
-      ltri{ // 1 - (0, 1, 0)
-        {Vector2d(0, 0), Vector2d(0.5, -HALF_SQRT_3),  Vector2d(1, 0)},
-        {Vector3d(0, -1, 0), Vector3d(0, 0, -1), Vector3d(1, 0, 0)},
-        {Vector2d(0, 0), Vector2d(1.5, -HALF_SQRT_3), Vector2d(0, 0)},
-        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
-        {0, 4, 2}
-      },
-      ltri{ // 2 - (1, 1, 0)
-        {Vector2d(0, 0), Vector2d(1, 0), Vector2d(0.5, HALF_SQRT_3)},
-        {Vector3d(-1, 0, 0), Vector3d(0, 1, 0), Vector3d(0, 0, 1)},
-        {Vector2d(0, 0), Vector2d(1.5, HALF_SQRT_3), Vector2d(0, 0)},
-        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)},
-        {1, 5, 3},
-      },
-      ltri{ // 3 - (1, 1, 1)
-        {Vector2d(0, 0), Vector2d(0.5, HALF_SQRT_3), Vector2d(-0.5, HALF_SQRT_3)},
-        {Vector3d(0, 0, -1), Vector3d(1, 0, 0), Vector3d(0, -1, 0)},
-        {Vector2d(0, 0), Vector2d(0, SQRT_3), Vector2d(0, 0)},
-        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
-        {2, 0, 4},
-      },
-      ltri{ // 4 - (1, 0, 1)
-        {Vector2d(0, 0), Vector2d(-0.5, HALF_SQRT_3), Vector2d(-1, 0)},
-        {Vector3d(0, 1, 0), Vector3d(0, 0, 1), Vector3d(-1, 0, 0)},
-        {Vector2d(0, 0), Vector2d(-1.5, HALF_SQRT_3), Vector2d(0, 0)},
-        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)},
-        {3, 1, 5},
-      },
-      ltri{ // 5 - (0, 0, 1)
-        {Vector2d(0, 0), Vector2d(-1, 0), Vector2d(-0.5, -HALF_SQRT_3)},
-        {Vector3d(1, 0, 0), Vector3d(0, -1, 0), Vector3d(0, 0, -1)},
-        {Vector2d(0, 0), Vector2d(-1.5, -HALF_SQRT_3), Vector2d(0, 0)},
-        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
-        {4, 2, 0},
-      }};
+double countMirrorsHetero(const Ray& ray, const Intersection& isect, const OrbifoldDirection& d, unsigned* mirrors) {
+//  Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - b;
+//  Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - b;
+  //Vector2d dir(ray.Direction.x(), ray.Direction.z());
 
-  // The mirror intersection counters. Count the number of each type of mirror a path intersects
-  unsigned m1 = 0, m2 = 0, m3 = 0;
+  Vector2d S = Vector2d(0.0, 0) - d.base;
+  Vector2d E = Vector2d(0.5, 0.8660254037844386)*100 - d.base;
+  Vector2d dir(0.5, 0.8660254037844386);
+  dir.normalize();
+//  Vector2d dir(0.4472135954999579, 0.8944271909999159);
 
-  // Make the center at the middle of the fundamental domain, and normalize the ray to unit length mirrors
-  const Vector3d ctrTx(0, 0, -SQRT_3/4);
-  const Vector3d rayStart = ctrTx + ray.Origin / sceneData->orbifoldInfo.scale;
-  const Vector3d rayEnd = ctrTx + isect.IPoint / sceneData->orbifoldInfo.scale;
+  const double So = dot(S, d.o);
+  const double dir_dot_o = dot(dir, d.o);
 
-  unsigned type = 0; // Index of the current triangle type in the jump table
-  unsigned m = 0; // Index of the base vertex of the edge under consideration
-  Vector2d basePos(0, 0); // Offset of the mirror under consideration
-  const Vector3d triEnd = triCoordForPoint(rayEnd, type, basePos); // Triangle coordinates of the end of the path
-  const Vector3d triStart = triCoordForPoint(rayStart, type, basePos); // Triangle coordinates of the beginning of the path
-  const Vector2d d(rayEnd.x() - rayStart.x(), rayEnd.z() - rayStart.z()); // The direction of the ray
-  const Vector2d P(rayStart.x(), rayStart.z()); // The start position of the ray
-  Vector3d current =  triStart; // Triangle coordinate of the current triangle
+  int m0 = 0, mE = 0;
 
-  // FIXME: Heisenbug when running radiosity requires bailout to breakout of an infinite loop
-  unsigned bailout = 0;
-  const unsigned MAX_BAILOUT = 100000000;
-
-  // While we haven't reached the triangle coordinate for the end of the path
-  while((bailout < MAX_BAILOUT) && !(current.x() == triEnd.x() && current.y() == triEnd.y() && current.z() == triEnd.z())) {
-    for(unsigned i = 0; i < 3; i++) { // Check each mirror for intersection
-      // Note that the jump table is set up so m never corresponds to the mirror we just came from
-      const Vector2d A = jmptable[type].corners[m] + basePos;
-      const Vector2d B = jmptable[type].corners[(m+1)%3] + basePos;
-      const Vector2d v = B-A;
-
-      // Find the intersection of the mirror and the path
-      double alpha, beta;
-      bool isect = intersectLines(A, v, P, d, alpha, beta);
-
-      retry_alpha:
-      if(!isect) {
-        continue;
-      } else if(beta > 0.0) { // If the intersection lies on the path in front of the start point
-        if(alpha > 0.0 && alpha < 1.0) { // If the path intersects the mirror not at one of the endpoints
-          // Use the jump table to update the intersection counters and move to the next tile
-          unsigned mm = m;
-          m = next_m[mm];
-          current += jmptable[type].coorddiffs[mm];
-          basePos += jmptable[type].posdiffs[mm];
-          type = jmptable[type].next_type[mm];
-          m1 += jmptable[type].mAdd[mm].x();
-          m2 += jmptable[type].mAdd[mm].y();
-          m3 += jmptable[type].mAdd[mm].z();
-          break;
-        } else if(alpha == 0.0 || alpha == 1.0) { // The path intersects one of the endpoints of the mirror
-          // Perturb the ray direction a little and try again
-          isect = intersectLines(A, v, P, d - v.x()*0.001/beta, alpha, beta);
-          goto retry_alpha;
-        }
-
-      } else if(alpha == INFINITY) { // The path and the share more than one point in common
-        throw runtime_error("TODO: handle intersection of the same line!");
-      }
-      m = (m + 1) % 3;
-    }
-    bailout += 1;
+  if(dir_dot_o > 0) {
+    m0 = ceil(So / d.v_sep);
+    mE = floor(dot(E, d.o) / d.v_sep);
+  } else if (dir_dot_o < 0) {
+    m0 = floor(So / d.v_sep);
+    mE = ceil(dot(E, d.o) / d.v_sep);
+  } else {
+    return 0.0; // Disregard this direction of mirrors
   }
 
-  return pow(sceneData->orbifoldInfo.r1, m1) * pow(sceneData->orbifoldInfo.r2, m2) * pow(sceneData->orbifoldInfo.r3, m3);
+  const double k0 = (m0 * d.v_sep - So) / dir_dot_o;
+  const double kE = (mE * d.v_sep - So) / dir_dot_o;
+
+  const double  dK = (kE - k0) / abs(mE - m0);
+
+//  string acc = string("R = (") + vec2dToString(S) + string(", ") + vec2dToString(dir) + string(")") +
+//               string(" I = ") + vec2dToString(E) + string("\n");
+
+//  acc += string("k0 = ") + boost::to_string(k0) + string(" kE = ") + boost::to_string(kE) + string("\n");
+//  acc += string("dK = ") + boost::to_string(dK) + string("\n");
+//  acc += string("m0 = ") + boost::to_string(m0) + string(" mE = ") + boost::to_string(mE) + string("\n");
+
+
+  // TODO: What if point lies on a mirror?
+  unsigned i = abs(m0) % d.numOffsets;
+  for(double k = k0; k < kE; k += dK) {
+
+    const Vector2d P = S + k * dir;
+    const double l = dot(P, d.m) + d.offsetArray[i];
+//    acc += string(" l = ") + boost::to_string(l) + string(" \n");
+//    acc += string(" l / h_sep = ") + boost::to_string(l/d.h_sep) + string("\n");
+//    acc += string(" i = ") + boost::to_string(i) + string("\n");
+//    acc += string(" k = ") + boost::to_string(k) + string("\n");
+//    acc += string(" d.nm = ") + boost::to_string(d.numMirrors) + string("\n");
+
+    const int mirror_index = abs(fmod(l / d.h_sep, d.numMirrors));
+
+    mirrors[d.indexArray[mirror_index]] += 1;
+
+//    acc += string("t =  ") + boost::to_string(abs(mirror_index)) + string("\n");
+
+    i = (i + 1) % d.numOffsets;
+  }
+
+//  acc += string("\n");
+
+//  throw runtime_error(acc);
+
+  return 0;
+// TODO: Don't run algorithm if we are between the same mirrors
+//  if(m0 == me) {
+//    return 0;
+//  }
+//  const Vector3d b0 = b + o * m0 * h;
+//  const Vector3d be = b + o * me * h;
+//
+//  const double oDotOmega = dot(ray.Direction, o);
+//
+//  const double k0 = (dot(o, b0) - dot(ray.Origin, o)) / oDotOmega;
+//  const double ke = (dot(o, be) - dot(isect.IPoint, o)) / oDotOmega;
+//  const unsigned numMirrors = (me - m0);
+//
+//  const double dK = (ke - k0) / numMirrors;
+//
+//  string acc = string("R = (") + vec3dToString(ray.Origin) + string(", ") + vec3dToString(ray.Direction) + string(")") +
+//      string(" I = ") + vec3dToString(isect.IPoint) + string("\n");
+//  for(unsigned i = 0; i < numMirrors; i++) {
+//    acc += boost::to_string(dot(b + (k0 + i*dK)*ray.Direction, op)) + string(" ");
+//  }
+//  acc += string("\n");
+//
+//  throw runtime_error(acc);
 }
+
+
+double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const {
+
+  memset(threadData->mirrorCounter, 0, sizeof(unsigned)*3);
+  countMirrorsHetero(ray, isect, sceneData->orbifoldInfo.mirrorDirs[0], threadData->mirrorCounter);
+  countMirrorsHetero(ray, isect, sceneData->orbifoldInfo.mirrorDirs[1], threadData->mirrorCounter);
+  countMirrorsHetero(ray, isect, sceneData->orbifoldInfo.mirrorDirs[2], threadData->mirrorCounter);
+
+  return pow(sceneData->orbifoldInfo.r1, threadData->mirrorCounter[0]) *
+         pow(sceneData->orbifoldInfo.r2, threadData->mirrorCounter[1]) *
+         pow(sceneData->orbifoldInfo.r3, threadData->mirrorCounter[2]);
+//  unsigned* mirrors = new unsigned[3];
+//  OrbifoldDirection d1;
+//  d1.base = Vector2d(-0.5, -0.4330127018922193) * sceneData->orbifoldInfo.scale.x();
+//  d1.o = Vector2d(-0.8660254037844386, 0.5000000000000001);
+//  d1.m = Vector2d(0.5000000000000001, 0.8660254037844386);
+//  d1.base = Vector2d(-0.5, -0.4330127018922193) * sceneData->orbifoldInfo.scale.x();
+//  d1.o = Vector2d(0, 1);
+//  d1.m = Vector2d(1, 0);
+//  d1.numOffsets = 2;
+//  d1.offsetArray[0] = 0;
+//  d1.offsetArray[1] = 1.5;//-1.5 * sceneData->orbifoldInfo.scale.x();
+//
+//  d1.numMirrors = 3;
+//  d1.indexArray[0] = 0;
+//  d1.indexArray[1] = 1;
+//  d1.indexArray[2] = 2;
+//
+//  d1.v_sep = 0.8660254037844386 * sceneData->orbifoldInfo.scale.x();
+//  d1.h_sep = sceneData->orbifoldInfo.scale.x();
+//
+//
+//  const Vector2d m1(0.5000000000000001, 0.8660254037844386);
+//  const Vector2d o1(-0.8660254037844386, 0.5000000000000001);
+//  const Vector2d b10 = Vector2d(-0.5, -0.4330127018922193) * sceneData->orbifoldInfo.scale.x();
+//  const Vector2d b11(0.0, 0.4330127018922193);
+//
+//  const double SQRT_3 = 1.7320508075688772;
+//  const Vector3d ctrTx(0, 0, -SQRT_3/4);
+//  const Vector3d scale = Vector3d(sceneData->orbifoldInfo.scale.x(), sceneData->orbifoldInfo.scale.y(), sceneData->orbifoldInfo.scale.x());
+//  const Vector3d rayStart = ctrTx + ray.Origin / scale;
+//  const Vector3d rayEnd = ctrTx + isect.IPoint / scale;
+//  const Vector3d o2(0, 0, 1);
+//  const Vector3d op2(1, 0, 0);
+//  const Vector3d b20(-0.5, 0, -0.4330127018922193);
+//  const Vector3d b21(0.0, 0, 0.4330127018922193);
+//  const Vector3d o2(0, 0, 1);
+//  const Vector3d op2(1, 0, 0);
+//  const Vector3d b20(-0.5, 0, -0.4330127018922193);
+//  const Vector3d b21(0.0, 0, 0.4330127018922193);
+//  delete mirrors;
+//  return 0;
+}
+
+//double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
+//{
+//  const double SQRT_3 = 1.7320508075688772;
+//  const double HALF_SQRT_3 = 0.8660254037844386;
+//
+//  struct ltri {
+//    Vector2d corners[3];
+//    Vector3d coorddiffs[3];
+//    Vector2d posdiffs[3];
+//    Vector3d mAdd[3];
+//    unsigned next_type[3];
+//  };
+//
+//  const unsigned next_m[3] = {0, 2, 1}; // The next mirror index based on the current index
+//  // Lookup table for mirror intersection information
+//  // Given a mirror and tile, the jump table tells us which tile is adjacent and how to update the position
+//  // and triangle coordinates as we march along a path
+//  const ltri jmptable[6] = {
+//      ltri{ // 0 - (0, 0, 0)
+//        {Vector2d(0, 0), Vector2d(-0.5, -HALF_SQRT_3), Vector2d(0.5, -HALF_SQRT_3)},
+//        {Vector3d(0, 0, 1), Vector3d(-1, 0, 0), Vector3d(0, 1, 0)},
+//        {Vector2d(0, 0), Vector2d(0, -SQRT_3), Vector2d(0, 0)},
+//        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)}, // Blue, Orange, Green
+//        {5, 3, 1},
+//      },
+//      ltri{ // 1 - (0, 1, 0)
+//        {Vector2d(0, 0), Vector2d(0.5, -HALF_SQRT_3),  Vector2d(1, 0)},
+//        {Vector3d(0, -1, 0), Vector3d(0, 0, -1), Vector3d(1, 0, 0)},
+//        {Vector2d(0, 0), Vector2d(1.5, -HALF_SQRT_3), Vector2d(0, 0)},
+//        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
+//        {0, 4, 2}
+//      },
+//      ltri{ // 2 - (1, 1, 0)
+//        {Vector2d(0, 0), Vector2d(1, 0), Vector2d(0.5, HALF_SQRT_3)},
+//        {Vector3d(-1, 0, 0), Vector3d(0, 1, 0), Vector3d(0, 0, 1)},
+//        {Vector2d(0, 0), Vector2d(1.5, HALF_SQRT_3), Vector2d(0, 0)},
+//        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)},
+//        {1, 5, 3},
+//      },
+//      ltri{ // 3 - (1, 1, 1)
+//        {Vector2d(0, 0), Vector2d(0.5, HALF_SQRT_3), Vector2d(-0.5, HALF_SQRT_3)},
+//        {Vector3d(0, 0, -1), Vector3d(1, 0, 0), Vector3d(0, -1, 0)},
+//        {Vector2d(0, 0), Vector2d(0, SQRT_3), Vector2d(0, 0)},
+//        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
+//        {2, 0, 4},
+//      },
+//      ltri{ // 4 - (1, 0, 1)
+//        {Vector2d(0, 0), Vector2d(-0.5, HALF_SQRT_3), Vector2d(-1, 0)},
+//        {Vector3d(0, 1, 0), Vector3d(0, 0, 1), Vector3d(-1, 0, 0)},
+//        {Vector2d(0, 0), Vector2d(-1.5, HALF_SQRT_3), Vector2d(0, 0)},
+//        {Vector3d(0, 0, 1), Vector3d(1, 0, 0), Vector3d(0, 1, 0)},
+//        {3, 1, 5},
+//      },
+//      ltri{ // 5 - (0, 0, 1)
+//        {Vector2d(0, 0), Vector2d(-1, 0), Vector2d(-0.5, -HALF_SQRT_3)},
+//        {Vector3d(1, 0, 0), Vector3d(0, -1, 0), Vector3d(0, 0, -1)},
+//        {Vector2d(0, 0), Vector2d(-1.5, -HALF_SQRT_3), Vector2d(0, 0)},
+//        {Vector3d(0, 1, 0), Vector3d(1, 0, 0), Vector3d(0, 0, 1)},
+//        {4, 2, 0},
+//      }};
+//
+//  // The mirror intersection counters. Count the number of each type of mirror a path intersects
+//  unsigned m1 = 0, m2 = 0, m3 = 0;
+//
+//  // Make the center at the middle of the fundamental domain, and normalize the ray to unit length mirrors
+//  const Vector3d ctrTx(0, 0, -SQRT_3/4);
+//  const Vector3d scale = Vector3d(sceneData->orbifoldInfo.scale.x(), sceneData->orbifoldInfo.scale.y(), sceneData->orbifoldInfo.scale.x());
+//  const Vector3d rayStart = ctrTx + ray.Origin / scale;
+//  const Vector3d rayEnd = ctrTx + isect.IPoint / scale;
+//
+//  //throw runtime_error(string("raystart = ") + vec3dToString(rayStart) + string(" rayend = ") + vec3dToString(rayEnd) + string("\n"));
+//
+//  unsigned type = 0; // Index of the current triangle type in the jump table
+//  unsigned m = 0; // Index of the base vertex of the edge under consideration
+//  Vector2d basePos(0, 0); // Offset of the mirror under consideration
+//  const Vector3d triEnd = triCoordForPoint(rayEnd, type, basePos); // Triangle coordinates of the end of the path
+//  const Vector3d triStart = triCoordForPoint(rayStart, type, basePos); // Triangle coordinates of the beginning of the path
+//  const Vector2d d(rayEnd.x() - rayStart.x(), rayEnd.z() - rayStart.z()); // The direction of the ray
+//  const Vector2d P(rayStart.x(), rayStart.z()); // The start position of the ray
+//  Vector3d current =  triStart; // Triangle coordinate of the current triangle
+//
+//
+//
+//  // FIXME: Heisenbug when running radiosity requires bailout to breakout of an infinite loop
+//  unsigned bailout = 0;
+//  const unsigned MAX_BAILOUT = 100000000;
+//
+//  // While we haven't reached the triangle coordinate for the end of the path
+//  while((bailout < MAX_BAILOUT) && !(current.x() == triEnd.x() && current.y() == triEnd.y() && current.z() == triEnd.z())) {
+//    for(unsigned i = 0; i < 3; i++) { // Check each mirror for intersection
+//      // Note that the jump table is set up so m never corresponds to the mirror we just came from
+//      const Vector2d A = jmptable[type].corners[m] + basePos;
+//      const Vector2d B = jmptable[type].corners[(m+1)%3] + basePos;
+//      const Vector2d v = B-A;
+//
+//      // Find the intersection of the mirror and the path
+//      double alpha, beta;
+//      bool isect = intersectLines(A, v, P, d, alpha, beta);
+//
+//      retry_alpha:
+//      if(!isect) {
+//        continue;
+//      } else if(beta > 0.0) { // If the intersection lies on the path in front of the start point
+//        if(alpha > 0.0 && alpha < 1.0) { // If the path intersects the mirror not at one of the endpoints
+//          // Use the jump table to update the intersection counters and move to the next tile
+//          unsigned mm = m;
+//          m = next_m[mm];
+//          current += jmptable[type].coorddiffs[mm];
+//          basePos += jmptable[type].posdiffs[mm];
+//          type = jmptable[type].next_type[mm];
+//          m1 += jmptable[type].mAdd[mm].x();
+//          m2 += jmptable[type].mAdd[mm].y();
+//          m3 += jmptable[type].mAdd[mm].z();
+//          break;
+//        } else if(alpha == 0.0 || alpha == 1.0) { // The path intersects one of the endpoints of the mirror
+//          // Perturb the ray direction a little and try again
+//          isect = intersectLines(A, v, P, d - v.x()*0.001/beta, alpha, beta);
+//          goto retry_alpha;
+//        }
+//
+//      } else if(alpha == INFINITY) { // The path and the share more than one point in common
+//        throw runtime_error("TODO: handle intersection of the same line!");
+//      }
+//      m = (m + 1) % 3;
+//    }
+//    bailout += 1;
+//  }
+//
+//  return pow(sceneData->orbifoldInfo.r1, m1) * pow(sceneData->orbifoldInfo.r2, m2) * pow(sceneData->orbifoldInfo.r3, m3);
+//}
 
 } // end of namespace

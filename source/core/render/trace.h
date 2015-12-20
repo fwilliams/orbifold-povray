@@ -803,9 +803,9 @@ class Trace
     /// @{
     ///
         double ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const;
+        double ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const;
         double ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const;
         double ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const;
-        double ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const;
     ///
     /// @}
     ///
