@@ -3834,191 +3834,191 @@ void Trace::ComputeSubsurfaceScattering(const FINISH *Finish, const MathColour& 
 //  }
 //}
 
-double Trace::ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
-{
-  typedef GenericVector2d<POV_INT64> IntVector2d;
+//double Trace::ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
+//{
+//  typedef GenericVector2d<POV_INT64> IntVector2d;
+//
+//  const Vector3d rayStart = ray.Origin / sceneData->orbifoldInfo.scale;
+//  const Vector3d rayEnd = isect.IPoint / sceneData->orbifoldInfo.scale;
+//
+//  const POV_INT64 latticeStart = floor(rayStart.z() + 0.5);
+//  const POV_INT64 latticeEnd = floor(rayEnd.z() + 0.5);
+//  const POV_INT64 latticeDist = abs(latticeStart - latticeEnd);
+//
+//  // Bail out if the ray doesn't attenuate
+//  if(latticeDist == 0) {
+//    return 1.0;
+//  }
+//
+//  // Whether we're starting from even and odd indices in x and y
+//  const POV_INT64 latticeMod = latticeStart % 2;
+//
+//  // Mirror vector is (left, top, right, bottom)
+//  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+//  POV_INT64 x1 = latticeDist / 2;
+//  POV_INT64 x2 = latticeDist - x1;
+//
+//  // Even and going backwards (-) or odd and going forwards (+)
+//  if((latticeMod == 0 && latticeStart > latticeEnd) ||
+//     (latticeMod == 1 && latticeStart < latticeEnd)) {
+//    n0 = x2;
+//    n1 = x1;
+//  } else if(latticeDist != 0) { // Even and going right (+) or Odd and going left (-)
+//    n0 = x1;
+//    n1 = x2;
+//  }
+//
+//  return pow(sceneData->orbifoldInfo.r1, (double)n0) *
+//         pow(sceneData->orbifoldInfo.r2, (double)n1);
+//}
 
-  const Vector3d rayStart = ray.Origin / sceneData->orbifoldInfo.scale;
-  const Vector3d rayEnd = isect.IPoint / sceneData->orbifoldInfo.scale;
+//double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
+//{
+//  typedef GenericVector2d<POV_INT64> IntVector2d;
+//
+//  const Vector3d rayStart = ray.Origin / sceneData->orbifoldInfo.scale;
+//  const Vector3d rayEnd = isect.IPoint / sceneData->orbifoldInfo.scale;
+//
+//  const IntVector2d latticeStart(floor(rayStart.x() + 0.5), floor(rayStart.z() + 0.5));
+//  const IntVector2d latticeEnd(floor(rayEnd.x() + 0.5), floor(rayEnd.z() + 0.5));
+//  const IntVector2d latticeDist(abs(latticeStart.x() - latticeEnd.x()), abs(latticeStart.y() - latticeEnd.y()));
+//
+//  // Bail out if the ray doesn't attenuate
+//  if(latticeDist.x() == 0 && latticeDist.y() == 0) {
+//    return 1.0;
+//  }
+//
+//  // Whether we're starting from even and odd indices in x and y
+//  const IntVector2d latticeMod(latticeStart.x() % 2, latticeStart.y() % 2);
+//
+//  // Mirror vector is (left, top, right, bottom)
+//  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
+//  POV_INT64 x1 = latticeDist.x() / 2;
+//  POV_INT64 x2 = latticeDist.x() - x1;
+//  POV_INT64 y1 = latticeDist.y() / 2;
+//  POV_INT64 y2 = latticeDist.y() - y1;
+//
+//  // Even and going left (-) or odd and going right (+)
+//  if((latticeMod.x() == 0 && latticeStart.x() > latticeEnd.x()) ||
+//     (latticeMod.x() == 1 && latticeStart.x() < latticeEnd.x())) {
+//    n0 = x2;
+//    n2 = x1;
+//  } else if(latticeDist.x() != 0) { // Even and going right (+) or Odd and going left (-)
+//    n0 = x1;
+//    n2 = x2;
+//  }
+//
+//  // Even and going down (-) or odd and going up (+)
+//  if((latticeMod.y() == 0 && latticeStart.y() > latticeEnd.y()) ||
+//     (latticeMod.y() == 1 && latticeStart.y() < latticeEnd.y())) {
+//    n3 = y2;
+//    n1 = y1;
+//  } else if(latticeDist.y() != 0) { // Even and going up (+) or Odd and going down (-)
+//    n3 = y1;
+//    n1 = y2;
+//  }
+//
+//  return pow(sceneData->orbifoldInfo.r1, (double)n0) *
+//         pow(sceneData->orbifoldInfo.r2, (double)n1) *
+//         pow(sceneData->orbifoldInfo.r3, (double)n2) *
+//         pow(sceneData->orbifoldInfo.r4, (double)n3);
+//}
 
-  const POV_INT64 latticeStart = floor(rayStart.z() + 0.5);
-  const POV_INT64 latticeEnd = floor(rayEnd.z() + 0.5);
-  const POV_INT64 latticeDist = abs(latticeStart - latticeEnd);
+//Vector3d roundHexCoordinate(const Vector3d& hexCoord)
+//{
+//  Vector3d r = vround(hexCoord);
+//  Vector3d diff = vabs(hexCoord - r);
+//
+//  if(diff.x() > diff.y() && diff.x() > diff.z()) {
+//    r.x() = -r.y() - r.z();
+//  } else if (diff.y() > diff.z()) {
+//    r.y() = -r.x() - r.z();
+//  } else {
+//    r.z() = -r.x() - r.y();
+//  }
+//
+//  return r;
+//}
 
-  // Bail out if the ray doesn't attenuate
-  if(latticeDist == 0) {
-    return 1.0;
-  }
+//Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, Vector2d& base) {
+//  const double SQRT_3 = 1.7320508075688772;
+//  const double HALF_SQRT_3 = 0.8660254037844386;
+//
+//  const Vector3d scale = Vector3d(3.0/SQRT_3, 1.0, SQRT_3);
+//  const Vector3d tPoint = point / scale;
+//#define __HEX_COORD__(pt) Vector3d(-(pt).z() - ((pt).x()/SQRT_3), 2.0 * (pt).x() / SQRT_3, (pt).z() - ((pt).x()/SQRT_3))
+//  const Vector3d hexCoord = roundHexCoordinate(__HEX_COORD__(tPoint));
+//#undef __HEX_COORD__
+//  const Vector2d hexXYPos(hexCoord.y() * HALF_SQRT_3, hexCoord.z() + hexCoord.y() * 0.5);
+//  base = hexXYPos * Vector2d(scale.x(), scale.z());
+//
+//  const Vector2d omega = Vector2d(-0.5, HALF_SQRT_3);
+//  const Vector2d omegaBar = Vector2d(-0.5, -HALF_SQRT_3);
+//
+//  const Vector3d baseTriCoord = hexCoord.y() * Vector3d(-1, 1, -2) - hexCoord.x() * Vector3d(2, 1, 1);
+//  Vector3d retTriCoord = baseTriCoord;
+//
+//  if(tPoint.z() > hexXYPos.y()) {
+//    retTriCoord.x() += 1;
+//  }
+//
+//  if((tPoint.x() - hexXYPos.x())*omegaBar.y() - (tPoint.z() - hexXYPos.y())*omegaBar.x() > 0) {
+//    retTriCoord.z() += 1;
+//  }
+//
+//  if((tPoint.x() - hexXYPos.x())*omega.y() - (tPoint.z() - hexXYPos.y())*omega.x() > 0) {
+//    retTriCoord.y() += 1;
+//  }
+//
+//  const Vector3d bt = retTriCoord - baseTriCoord;
+//  if(bt.x() == 0 && bt.y() == 0 && bt.z() == 0) { type = 0; }
+//  else if(bt.x() == 0 && bt.y() == 1 && bt.z() == 0) { type = 1; }
+//  else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 0) { type = 2; }
+//  else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 1) { type = 3; }
+//  else if(bt.x() == 1 && bt.y() == 0 && bt.z() == 1) { type = 4; }
+//  else if(bt.x() == 0 && bt.y() == 0 && bt.z() == 1) { type = 5; }
+//
+//  return retTriCoord;
+//}
 
-  // Whether we're starting from even and odd indices in x and y
-  const POV_INT64 latticeMod = latticeStart % 2;
+//bool intersectLines(const Vector2d& P1, const Vector2d& v1, const Vector2d& P2, const Vector2d& v2, double& alpha1, double& alpha2) {
+//  const double num = (v2.y()*(P1.x()-P2.x()) - v2.x()*(P1.y()-P2.y()));
+//  const double denom = (v2.x()*v1.y() - v2.y()*v1.x());
+//
+//  if(denom == 0) {
+//    alpha1 = alpha2 = INFINITY;
+//    return num == 0;
+//  }
+//
+//  alpha1 = num/denom;
+//  if(v2.x() != 0 & v2.y() != 0) {
+//    alpha2 = max((P1.x() - P2.x() + v1.x()*alpha1)/v2.x(), (P1.y() - P2.y() + v1.y()*alpha1)/v2.y());
+//  } else if(v2.x() != 0) {
+//    alpha2 = (P1.x() - P2.x() + v1.x()*alpha1)/v2.x();
+//  } else {
+//    alpha2 = (P1.y() - P2.y() + v1.y()*alpha1)/v2.y();
+//  }
+//
+//  return true;
+//
+//}
 
-  // Mirror vector is (left, top, right, bottom)
-  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
-  POV_INT64 x1 = latticeDist / 2;
-  POV_INT64 x2 = latticeDist - x1;
-
-  // Even and going backwards (-) or odd and going forwards (+)
-  if((latticeMod == 0 && latticeStart > latticeEnd) ||
-     (latticeMod == 1 && latticeStart < latticeEnd)) {
-    n0 = x2;
-    n1 = x1;
-  } else if(latticeDist != 0) { // Even and going right (+) or Odd and going left (-)
-    n0 = x1;
-    n1 = x2;
-  }
-
-  return pow(sceneData->orbifoldInfo.r1, (double)n0) *
-         pow(sceneData->orbifoldInfo.r2, (double)n1);
-}
-
-double Trace::ComputeX2222OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
-{
-  typedef GenericVector2d<POV_INT64> IntVector2d;
-
-  const Vector3d rayStart = ray.Origin / sceneData->orbifoldInfo.scale;
-  const Vector3d rayEnd = isect.IPoint / sceneData->orbifoldInfo.scale;
-
-  const IntVector2d latticeStart(floor(rayStart.x() + 0.5), floor(rayStart.z() + 0.5));
-  const IntVector2d latticeEnd(floor(rayEnd.x() + 0.5), floor(rayEnd.z() + 0.5));
-  const IntVector2d latticeDist(abs(latticeStart.x() - latticeEnd.x()), abs(latticeStart.y() - latticeEnd.y()));
-
-  // Bail out if the ray doesn't attenuate
-  if(latticeDist.x() == 0 && latticeDist.y() == 0) {
-    return 1.0;
-  }
-
-  // Whether we're starting from even and odd indices in x and y
-  const IntVector2d latticeMod(latticeStart.x() % 2, latticeStart.y() % 2);
-
-  // Mirror vector is (left, top, right, bottom)
-  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
-  POV_INT64 x1 = latticeDist.x() / 2;
-  POV_INT64 x2 = latticeDist.x() - x1;
-  POV_INT64 y1 = latticeDist.y() / 2;
-  POV_INT64 y2 = latticeDist.y() - y1;
-
-  // Even and going left (-) or odd and going right (+)
-  if((latticeMod.x() == 0 && latticeStart.x() > latticeEnd.x()) ||
-     (latticeMod.x() == 1 && latticeStart.x() < latticeEnd.x())) {
-    n0 = x2;
-    n2 = x1;
-  } else if(latticeDist.x() != 0) { // Even and going right (+) or Odd and going left (-)
-    n0 = x1;
-    n2 = x2;
-  }
-
-  // Even and going down (-) or odd and going up (+)
-  if((latticeMod.y() == 0 && latticeStart.y() > latticeEnd.y()) ||
-     (latticeMod.y() == 1 && latticeStart.y() < latticeEnd.y())) {
-    n3 = y2;
-    n1 = y1;
-  } else if(latticeDist.y() != 0) { // Even and going up (+) or Odd and going down (-)
-    n3 = y1;
-    n1 = y2;
-  }
-
-  return pow(sceneData->orbifoldInfo.r1, (double)n0) *
-         pow(sceneData->orbifoldInfo.r2, (double)n1) *
-         pow(sceneData->orbifoldInfo.r3, (double)n2) *
-         pow(sceneData->orbifoldInfo.r4, (double)n3);
-}
-
-Vector3d roundHexCoordinate(const Vector3d& hexCoord)
-{
-  Vector3d r = vround(hexCoord);
-  Vector3d diff = vabs(hexCoord - r);
-
-  if(diff.x() > diff.y() && diff.x() > diff.z()) {
-    r.x() = -r.y() - r.z();
-  } else if (diff.y() > diff.z()) {
-    r.y() = -r.x() - r.z();
-  } else {
-    r.z() = -r.x() - r.y();
-  }
-
-  return r;
-}
-
-Vector3d triCoordForPoint(const Vector3d& point, unsigned& type, Vector2d& base) {
-  const double SQRT_3 = 1.7320508075688772;
-  const double HALF_SQRT_3 = 0.8660254037844386;
-
-  const Vector3d scale = Vector3d(3.0/SQRT_3, 1.0, SQRT_3);
-  const Vector3d tPoint = point / scale;
-#define __HEX_COORD__(pt) Vector3d(-(pt).z() - ((pt).x()/SQRT_3), 2.0 * (pt).x() / SQRT_3, (pt).z() - ((pt).x()/SQRT_3))
-  const Vector3d hexCoord = roundHexCoordinate(__HEX_COORD__(tPoint));
-#undef __HEX_COORD__
-  const Vector2d hexXYPos(hexCoord.y() * HALF_SQRT_3, hexCoord.z() + hexCoord.y() * 0.5);
-  base = hexXYPos * Vector2d(scale.x(), scale.z());
-
-  const Vector2d omega = Vector2d(-0.5, HALF_SQRT_3);
-  const Vector2d omegaBar = Vector2d(-0.5, -HALF_SQRT_3);
-
-  const Vector3d baseTriCoord = hexCoord.y() * Vector3d(-1, 1, -2) - hexCoord.x() * Vector3d(2, 1, 1);
-  Vector3d retTriCoord = baseTriCoord;
-
-  if(tPoint.z() > hexXYPos.y()) {
-    retTriCoord.x() += 1;
-  }
-
-  if((tPoint.x() - hexXYPos.x())*omegaBar.y() - (tPoint.z() - hexXYPos.y())*omegaBar.x() > 0) {
-    retTriCoord.z() += 1;
-  }
-
-  if((tPoint.x() - hexXYPos.x())*omega.y() - (tPoint.z() - hexXYPos.y())*omega.x() > 0) {
-    retTriCoord.y() += 1;
-  }
-
-  const Vector3d bt = retTriCoord - baseTriCoord;
-  if(bt.x() == 0 && bt.y() == 0 && bt.z() == 0) { type = 0; }
-  else if(bt.x() == 0 && bt.y() == 1 && bt.z() == 0) { type = 1; }
-  else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 0) { type = 2; }
-  else if(bt.x() == 1 && bt.y() == 1 && bt.z() == 1) { type = 3; }
-  else if(bt.x() == 1 && bt.y() == 0 && bt.z() == 1) { type = 4; }
-  else if(bt.x() == 0 && bt.y() == 0 && bt.z() == 1) { type = 5; }
-
-  return retTriCoord;
-}
-
-bool intersectLines(const Vector2d& P1, const Vector2d& v1, const Vector2d& P2, const Vector2d& v2, double& alpha1, double& alpha2) {
-  const double num = (v2.y()*(P1.x()-P2.x()) - v2.x()*(P1.y()-P2.y()));
-  const double denom = (v2.x()*v1.y() - v2.y()*v1.x());
-
-  if(denom == 0) {
-    alpha1 = alpha2 = INFINITY;
-    return num == 0;
-  }
-
-  alpha1 = num/denom;
-  if(v2.x() != 0 & v2.y() != 0) {
-    alpha2 = max((P1.x() - P2.x() + v1.x()*alpha1)/v2.x(), (P1.y() - P2.y() + v1.y()*alpha1)/v2.y());
-  } else if(v2.x() != 0) {
-    alpha2 = (P1.x() - P2.x() + v1.x()*alpha1)/v2.x();
-  } else {
-    alpha2 = (P1.y() - P2.y() + v1.y()*alpha1)/v2.y();
-  }
-
-  return true;
-
-}
-
-string vec3dToString(const Vector3d& v) {
-  return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(", ") + boost::to_string(v.z()) + string(")");
-}
-
-string vec2dToString(const Vector2d& v) {
-  return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(")");
-}
-
-inline unsigned fastMax(unsigned x, unsigned y) {
-  return (x ^ ((x ^ y) & -(x < y)));
-}
-
-inline int fastAbs(int v) {
-  int const mask = v >> sizeof(int) * CHAR_BIT - 1;
-  return (v + mask) ^ mask;
-}
+//string vec3dToString(const Vector3d& v) {
+//  return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(", ") + boost::to_string(v.z()) + string(")");
+//}
+//
+//string vec2dToString(const Vector2d& v) {
+//  return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(")");
+//}
+//
+//inline unsigned fastMax(unsigned x, unsigned y) {
+//  return (x ^ ((x ^ y) & -(x < y)));
+//}
+//
+//inline int fastAbs(int v) {
+//  int const mask = v >> sizeof(int) * CHAR_BIT - 1;
+//  return (v + mask) ^ mask;
+//}
 //  if(m0 == mE) {
 //    const Vector2d P = S + k0 * dir;
 //    const int l = (dot(P, d.m) + d.offsetArray[abs(m0) % d.numOffsets]) / d.h_sep;
@@ -4027,71 +4027,71 @@ inline int fastAbs(int v) {
 //    return;
 //  }
 
-void countMirrorsHetero(const Vector2d& S, const Vector2d& E, const Vector2d& dir, const OrbifoldDirection& d, unsigned* mirrors) {
-  const double So = dot(S, d.o);
-  const double dir_dot_o = dot(dir, d.o);
-
-  int m0 = 0, mE = 0;
-
-  if(dir_dot_o > 0) {
-    m0 = ceil(So / d.v_sep);
-    mE = floor(dot(E, d.o) / d.v_sep);
-  } else if (dir_dot_o < 0) {
-    m0 = floor(So / d.v_sep);
-    mE = ceil(dot(E, d.o) / d.v_sep);
-  } else {
-    return; // Disregard this direction of mirrors
-  }
-
-  const double k0 = (m0 * d.v_sep - So) / dir_dot_o;
-  const double kE = (mE * d.v_sep - So) / dir_dot_o;
-
-  // Bail out if the path doesn't cross a mirror
-  if(kE < k0) return;
-
-
-  const unsigned numMirrors = abs(mE - m0);
-  const double  dK = (kE - k0) / fastMax(numMirrors, 1);//max<unsigned>(numMirrors, 1);
-
-  // i * dK + k0 + S
-  // for(double k = k0; k < kE + dK; k += dK) { // 2 FLOPS
-
-
-  // TODO: What if point lies on a mirror?
-  double k = k0;
-  unsigned i = abs(m0) % d.numOffsets;
-
-  for(unsigned j = 0; j <= numMirrors; j++) {
-    // Where the ray intersects the mirror line
-    const Vector2d P = S + k * dir; // 4 FLOPS
-
-    // Project the intersection onto m
-    const int l = (dot(P, d.m) + d.offsetArray[i]) / d.h_sep; // 5 FLOPS
-    mirrors[d.indexArray[l % d.numMirrors]] += 1; // 4 INT OPS
-
-    k += dK;
-    i = (i + 1) % d.numOffsets; // 2 INT OPS
-  }
-}
-
-double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const {
-
-//  memset(threadData->mirrorCounter, 0, sizeof(unsigned)*3);
-  const Vector2d B = sceneData->orbifoldInfo.mirrorDirs[0].base;
-  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - B;
-  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - B;
-//  const Vector2d dir(ray.Direction.x(), ray.Direction.z());
-
-  unsigned mirrorCount[3] = {0, 0, 0};
-
-  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[0], mirrorCount);
-  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[1], mirrorCount);
-  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[2], mirrorCount);
-
-  return pow(sceneData->orbifoldInfo.r1, mirrorCount[0]) *
-         pow(sceneData->orbifoldInfo.r2, mirrorCount[1]) *
-         pow(sceneData->orbifoldInfo.r3, mirrorCount[2]);
-}
+//void countMirrorsHetero(const Vector2d& S, const Vector2d& E, const Vector2d& dir, const OrbifoldDirection& d, unsigned* mirrors) {
+//  const double So = dot(S, d.o);
+//  const double dir_dot_o = dot(dir, d.o);
+//
+//  int m0 = 0, mE = 0;
+//
+//  if(dir_dot_o > 0) {
+//    m0 = ceil(So / d.v_sep);
+//    mE = floor(dot(E, d.o) / d.v_sep);
+//  } else if (dir_dot_o < 0) {
+//    m0 = floor(So / d.v_sep);
+//    mE = ceil(dot(E, d.o) / d.v_sep);
+//  } else {
+//    return; // Disregard this direction of mirrors
+//  }
+//
+//  const double k0 = (m0 * d.v_sep - So) / dir_dot_o;
+//  const double kE = (mE * d.v_sep - So) / dir_dot_o;
+//
+//  // Bail out if the path doesn't cross a mirror
+//  if(kE < k0) return;
+//
+//
+//  const unsigned numMirrors = abs(mE - m0);
+//  const double  dK = (kE - k0) / fastMax(numMirrors, 1);//max<unsigned>(numMirrors, 1);
+//
+//  // i * dK + k0 + S
+//  // for(double k = k0; k < kE + dK; k += dK) { // 2 FLOPS
+//
+//
+//  // TODO: What if point lies on a mirror?
+//  double k = k0;
+//  unsigned i = abs(m0) % d.numOffsets;
+//
+//  for(unsigned j = 0; j <= numMirrors; j++) {
+//    // Where the ray intersects the mirror line
+//    const Vector2d P = S + k * dir; // 4 FLOPS
+//
+//    // Project the intersection onto m
+//    const int l = (dot(P, d.m) + d.offsetArray[i]) / d.h_sep; // 5 FLOPS
+//    mirrors[d.indexArray[l % d.numMirrors]] += 1; // 4 INT OPS
+//
+//    k += dK;
+//    i = (i + 1) % d.numOffsets; // 2 INT OPS
+//  }
+//}
+//
+//double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const {
+//
+////  memset(threadData->mirrorCounter, 0, sizeof(unsigned)*3);
+//  const Vector2d B = sceneData->orbifoldInfo.mirrorDirs[0].base;
+//  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - B;
+//  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - B;
+////  const Vector2d dir(ray.Direction.x(), ray.Direction.z());
+//
+//  unsigned mirrorCount[3] = {0, 0, 0};
+//
+//  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[0], mirrorCount);
+//  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[1], mirrorCount);
+//  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[2], mirrorCount);
+//
+//  return pow(sceneData->orbifoldInfo.r1, mirrorCount[0]) *
+//         pow(sceneData->orbifoldInfo.r2, mirrorCount[1]) *
+//         pow(sceneData->orbifoldInfo.r3, mirrorCount[2]);
+//}
 
 //double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
 //{

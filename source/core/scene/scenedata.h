@@ -218,7 +218,7 @@ class SceneData
         float averageObjects, averageDepth, averageAborts, averageAbortObjects;
 
         // The Orbifold for the scene. By default this represents the trivial orbifold
-        OrbifoldInfo orbifoldInfo;
+//        OrbifoldInfo orbifoldInfo;
         OrbifoldData orbifoldData;
 
 

@@ -101,7 +101,6 @@ SceneData::SceneData() :
     removeBounds = true;
 
     tree = NULL;
-    orbifoldInfo.type = TRIVIAL;
 }
 
 SceneData::~SceneData()

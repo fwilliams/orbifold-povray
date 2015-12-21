@@ -7007,27 +7007,30 @@ void Parser::Parse_Global_Settings()
             EXPECT
                 CASE(XX_TOKEN)
                     Warning("** Orbifold");
-                    sceneData->orbifoldInfo.type = XX;
-                    Parse_Vector(sceneData->orbifoldInfo.scale);
+                    sceneData->orbifoldData.type = XX;
+                    Parse_Vector(sceneData->orbifoldData.scale);
 
-                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    sceneData->orbifoldData.r2 = Parse_Float();
+
+                    sceneData->orbifoldData.InitXXOrbifoldData();
                 END_CASE
 
                 CASE(X2222_TOKEN)
                     Warning("*2222 Orbifold");
-                    sceneData->orbifoldInfo.type = X2222;
-                    Parse_Vector(sceneData->orbifoldInfo.scale);
+                    sceneData->orbifoldData.type = X2222;
+                    Parse_Vector(sceneData->orbifoldData.scale);
 
-                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    sceneData->orbifoldData.r2 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r3 = Parse_Float();
+                    sceneData->orbifoldData.r3 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r4 = Parse_Float();
+                    sceneData->orbifoldData.r4 = Parse_Float();
 
+                    sceneData->orbifoldData.InitX2222OrbifoldData();
                 END_CASE
 
                 CASE(X333_TOKEN)
@@ -7057,24 +7060,24 @@ void Parser::Parse_Global_Settings()
 
                 CASE(X632_TOKEN)
                     Warning("*632 Orbifold");
-                    sceneData->orbifoldInfo.type = X632;
-                    Parse_Vector(sceneData->orbifoldInfo.scale);
-                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    sceneData->orbifoldData.type = X632;
+                    Parse_Vector(sceneData->orbifoldData.scale);
+                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    sceneData->orbifoldData.r2 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r3 = Parse_Float();
+                    sceneData->orbifoldData.r3 = Parse_Float();
                 END_CASE
 
                 CASE(X442_TOKEN)
                     Warning("*442 Orbifold");
-                    sceneData->orbifoldInfo.type = X442;
-                    Parse_Vector(sceneData->orbifoldInfo.scale);
-                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    sceneData->orbifoldData.type = X442;
+                    Parse_Vector(sceneData->orbifoldData.scale);
+                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    sceneData->orbifoldData.r2 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r3 = Parse_Float();
+                    sceneData->orbifoldData.r3 = Parse_Float();
                 END_CASE
 
                 OTHERWISE
