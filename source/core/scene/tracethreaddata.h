@@ -162,10 +162,6 @@ class TraceThreadData : public Task::TaskData
 
         inline shared_ptr<const SceneData> GetSceneData() const { return sceneData; }
 
-        /*
-         * Orbifold tracing mirror count for each thread
-         */
-        unsigned mirrorCounter[4];
     protected:
         /// scene data
         shared_ptr<SceneData> sceneData;

@@ -32,6 +32,12 @@
 /// @endparblock
 ///
 //******************************************************************************
+
+#include "core/math/vector.h"
+#include "core/render/ray.h"
+#include "core/coretypes.h"
+#include "core/scene/scenedata.h"
+
 #ifndef SOURCE_CORE_SCENE_ORBIFOLD_H
 #define SOURCE_CORE_SCENE_ORBIFOLD_H
 
@@ -41,13 +47,47 @@ enum OrbifoldType {
   XX, X2222, X333, X442, X632, TRIVIAL
 };
 
-
 struct OrbifoldDirection {
-  Vector2d o, m, base;
-  double v_sep, h_sep;
-  double offsetArray[2];
-  unsigned indexArray[3];
-  unsigned numOffsets, numMirrors;
+  Vector2d o, m, base; //8*2 * 3 = 48
+  double v_sep, h_sep; // + 16 = 64
+  double offsetArray[2]; // + 16 = 80
+  unsigned indexArray[3]; // + 12 = 82
+  unsigned numOffsets, numMirrors; // + 8 = 90
+};
+
+
+struct OrbifoldData {
+  OrbifoldType type;
+  Vector3d scale;
+  double r1, r2, r3, r4;
+  OrbifoldDirection mirrorDirs[4];
+
+  shared_ptr<SceneData> sceneData;
+
+  typedef double (OrbifoldData::*OrbifoldAttenuationCallback)(const Ray& r, const Intersection& isect) const;
+
+  OrbifoldAttenuationCallback attenuateFunction;
+
+  inline double attenuate(const Ray& r, const Intersection& i) const {
+    return (this->*attenuateFunction)(r, i);
+  }
+
+  void countMirrorsHetero(const Vector2d& S, const Vector2d& E,
+                          const Vector2d& dir, const OrbifoldDirection& d,
+                          unsigned* mirrors) const;
+
+  double attenuateX333(const Ray& ray, const Intersection& isect) const;
+  double attenuateX2222(const Ray& ray, const Intersection& isect) const;
+  double attenuateXX(const Ray& ray, const Intersection& isect) const;
+  double attenuateX632(const Ray& ray, const Intersection& isect) const;
+  double attenuateX442(const Ray& ray, const Intersection& isect) const;
+
+  void InitX333OrbifoldData();
+
+  static OrbifoldData MakeX2222OrbifoldData(Vector3d scale);
+  static OrbifoldData MakeXXOrbifoldData(Vector3d scale);
+  static OrbifoldData MakeX442OrbifoldData(Vector3d scale);
+  static OrbifoldData MakeX6322OrbifoldData(Vector3d scale);
 };
 
 struct OrbifoldInfo {

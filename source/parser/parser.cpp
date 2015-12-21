@@ -7032,14 +7032,26 @@ void Parser::Parse_Global_Settings()
 
                 CASE(X333_TOKEN)
                     Warning("*333 Orbifold");
-                    sceneData->orbifoldInfo.type = X333;
-                    Parse_Vector(sceneData->orbifoldInfo.scale);
-                    sceneData->orbifoldInfo.r1 = Parse_Float();
+                    sceneData->orbifoldData.type = X333;
+
+                    Parse_Vector(sceneData->orbifoldData.scale);
+                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r2 = Parse_Float();
+                    sceneData->orbifoldData.r2 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldInfo.r3 = Parse_Float();
-                    initOrbifoldX333(sceneData->orbifoldInfo);
+                    sceneData->orbifoldData.r3 = Parse_Float();
+
+                    sceneData->orbifoldData.InitX333OrbifoldData();
+
+//                    Warning("Orbifold Scale : %f %f %f",
+//                        sceneData->orbifoldData.scale.x(),
+//                        sceneData->orbifoldData.scale.y(),
+//                        sceneData->orbifoldData.scale.z());
+//
+//                    Warning("Orbifold Scale : %f %f %f",
+//                            sceneData->orbifoldData.r1,
+//                            sceneData->orbifoldData.r2,
+//                            sceneData->orbifoldData.r3);
 
                 END_CASE
 

@@ -219,6 +219,8 @@ class SceneData
 
         // The Orbifold for the scene. By default this represents the trivial orbifold
         OrbifoldInfo orbifoldInfo;
+        OrbifoldData orbifoldData;
+
 
         // ********************************************************************************
         // ********************************************************************************

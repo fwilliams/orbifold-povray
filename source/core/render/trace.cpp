@@ -162,7 +162,7 @@ double Trace::TraceRay(Ray& ray, MathColour& colour, ColourChannel& transm, COLC
             if(found == false) {
                 return HUGE_VAL;
             } else {
-                colour *= ComputeOrbifoldAttenuation(ray, bestisect);
+                colour *= sceneData->orbifoldData.attenuate(ray, bestisect);
                 return bestisect.Depth;
             }
         }
@@ -218,7 +218,7 @@ double Trace::TraceRay(Ray& ray, MathColour& colour, ColourChannel& transm, COLC
     if(found == false) {
         return HUGE_VAL;
     } else {
-        colour *= ComputeOrbifoldAttenuation(ray, bestisect);
+        colour *= sceneData->orbifoldData.attenuate(ray, bestisect);
         return bestisect.Depth;
     }
 }
@@ -3818,21 +3818,21 @@ void Trace::ComputeSubsurfaceScattering(const FINISH *Finish, const MathColour& 
 
 
 
-double Trace::ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
-{
-  switch(sceneData->orbifoldInfo.type) {
-  case TRIVIAL:
-    return 1.0;
-  case X2222:
-    return ComputeX2222OrbifoldAttenuation(ray, isect);
-  case X333:
-    return ComputeX333OrbifoldAttenuation(ray, isect);
-  case XX:
-    return ComputeXXOrbifoldAttenuation(ray, isect);
-  default:
-    throw runtime_error("balls to you!");
-  }
-}
+//double Trace::ComputeOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
+//{
+//  switch(sceneData->orbifoldInfo.type) {
+//  case TRIVIAL:
+//    return 1.0;
+//  case X2222:
+//    return ComputeX2222OrbifoldAttenuation(ray, isect);
+//  case X333:
+//    return ComputeX333OrbifoldAttenuation(ray, isect);
+//  case XX:
+//    return ComputeXXOrbifoldAttenuation(ray, isect);
+//  default:
+//    throw runtime_error("balls to you!");
+//  }
+//}
 
 double Trace::ComputeXXOrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
 {
@@ -4011,18 +4011,23 @@ string vec2dToString(const Vector2d& v) {
   return string("(") + boost::to_string(v.x()) + string(", ") + boost::to_string(v.y()) + string(")");
 }
 
+inline unsigned fastMax(unsigned x, unsigned y) {
+  return (x ^ ((x ^ y) & -(x < y)));
+}
 
-double countMirrorsHetero(const Ray& ray, const Intersection& isect, const OrbifoldDirection& d, unsigned* mirrors) {
-//  Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - b;
-//  Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - b;
-  //Vector2d dir(ray.Direction.x(), ray.Direction.z());
+inline int fastAbs(int v) {
+  int const mask = v >> sizeof(int) * CHAR_BIT - 1;
+  return (v + mask) ^ mask;
+}
+//  if(m0 == mE) {
+//    const Vector2d P = S + k0 * dir;
+//    const int l = (dot(P, d.m) + d.offsetArray[abs(m0) % d.numOffsets]) / d.h_sep;
+////    const int mirror_index = abs(fmod(l / d.h_sep, d.numMirrors));
+//    mirrors[d.indexArray[l % d.numMirrors]] += 1;
+//    return;
+//  }
 
-  Vector2d S = Vector2d(0.0, 0) - d.base;
-  Vector2d E = Vector2d(0.5, 0.8660254037844386)*100 - d.base;
-  Vector2d dir(0.5, 0.8660254037844386);
-  dir.normalize();
-//  Vector2d dir(0.4472135954999579, 0.8944271909999159);
-
+void countMirrorsHetero(const Vector2d& S, const Vector2d& E, const Vector2d& dir, const OrbifoldDirection& d, unsigned* mirrors) {
   const double So = dot(S, d.o);
   const double dir_dot_o = dot(dir, d.o);
 
@@ -4035,125 +4040,57 @@ double countMirrorsHetero(const Ray& ray, const Intersection& isect, const Orbif
     m0 = floor(So / d.v_sep);
     mE = ceil(dot(E, d.o) / d.v_sep);
   } else {
-    return 0.0; // Disregard this direction of mirrors
+    return; // Disregard this direction of mirrors
   }
 
   const double k0 = (m0 * d.v_sep - So) / dir_dot_o;
   const double kE = (mE * d.v_sep - So) / dir_dot_o;
 
-  const double  dK = (kE - k0) / abs(mE - m0);
+  // Bail out if the path doesn't cross a mirror
+  if(kE < k0) return;
 
-//  string acc = string("R = (") + vec2dToString(S) + string(", ") + vec2dToString(dir) + string(")") +
-//               string(" I = ") + vec2dToString(E) + string("\n");
 
-//  acc += string("k0 = ") + boost::to_string(k0) + string(" kE = ") + boost::to_string(kE) + string("\n");
-//  acc += string("dK = ") + boost::to_string(dK) + string("\n");
-//  acc += string("m0 = ") + boost::to_string(m0) + string(" mE = ") + boost::to_string(mE) + string("\n");
+  const unsigned numMirrors = abs(mE - m0);
+  const double  dK = (kE - k0) / fastMax(numMirrors, 1);//max<unsigned>(numMirrors, 1);
+
+  // i * dK + k0 + S
+  // for(double k = k0; k < kE + dK; k += dK) { // 2 FLOPS
 
 
   // TODO: What if point lies on a mirror?
+  double k = k0;
   unsigned i = abs(m0) % d.numOffsets;
-  for(double k = k0; k < kE; k += dK) {
 
-    const Vector2d P = S + k * dir;
-    const double l = dot(P, d.m) + d.offsetArray[i];
-//    acc += string(" l = ") + boost::to_string(l) + string(" \n");
-//    acc += string(" l / h_sep = ") + boost::to_string(l/d.h_sep) + string("\n");
-//    acc += string(" i = ") + boost::to_string(i) + string("\n");
-//    acc += string(" k = ") + boost::to_string(k) + string("\n");
-//    acc += string(" d.nm = ") + boost::to_string(d.numMirrors) + string("\n");
+  for(unsigned j = 0; j <= numMirrors; j++) {
+    // Where the ray intersects the mirror line
+    const Vector2d P = S + k * dir; // 4 FLOPS
 
-    const int mirror_index = abs(fmod(l / d.h_sep, d.numMirrors));
+    // Project the intersection onto m
+    const int l = (dot(P, d.m) + d.offsetArray[i]) / d.h_sep; // 5 FLOPS
+    mirrors[d.indexArray[l % d.numMirrors]] += 1; // 4 INT OPS
 
-    mirrors[d.indexArray[mirror_index]] += 1;
-
-//    acc += string("t =  ") + boost::to_string(abs(mirror_index)) + string("\n");
-
-    i = (i + 1) % d.numOffsets;
+    k += dK;
+    i = (i + 1) % d.numOffsets; // 2 INT OPS
   }
-
-//  acc += string("\n");
-
-//  throw runtime_error(acc);
-
-  return 0;
-// TODO: Don't run algorithm if we are between the same mirrors
-//  if(m0 == me) {
-//    return 0;
-//  }
-//  const Vector3d b0 = b + o * m0 * h;
-//  const Vector3d be = b + o * me * h;
-//
-//  const double oDotOmega = dot(ray.Direction, o);
-//
-//  const double k0 = (dot(o, b0) - dot(ray.Origin, o)) / oDotOmega;
-//  const double ke = (dot(o, be) - dot(isect.IPoint, o)) / oDotOmega;
-//  const unsigned numMirrors = (me - m0);
-//
-//  const double dK = (ke - k0) / numMirrors;
-//
-//  string acc = string("R = (") + vec3dToString(ray.Origin) + string(", ") + vec3dToString(ray.Direction) + string(")") +
-//      string(" I = ") + vec3dToString(isect.IPoint) + string("\n");
-//  for(unsigned i = 0; i < numMirrors; i++) {
-//    acc += boost::to_string(dot(b + (k0 + i*dK)*ray.Direction, op)) + string(" ");
-//  }
-//  acc += string("\n");
-//
-//  throw runtime_error(acc);
 }
-
 
 double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const {
 
-  memset(threadData->mirrorCounter, 0, sizeof(unsigned)*3);
-  countMirrorsHetero(ray, isect, sceneData->orbifoldInfo.mirrorDirs[0], threadData->mirrorCounter);
-  countMirrorsHetero(ray, isect, sceneData->orbifoldInfo.mirrorDirs[1], threadData->mirrorCounter);
-  countMirrorsHetero(ray, isect, sceneData->orbifoldInfo.mirrorDirs[2], threadData->mirrorCounter);
+//  memset(threadData->mirrorCounter, 0, sizeof(unsigned)*3);
+  const Vector2d B = sceneData->orbifoldInfo.mirrorDirs[0].base;
+  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - B;
+  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - B;
+//  const Vector2d dir(ray.Direction.x(), ray.Direction.z());
 
-  return pow(sceneData->orbifoldInfo.r1, threadData->mirrorCounter[0]) *
-         pow(sceneData->orbifoldInfo.r2, threadData->mirrorCounter[1]) *
-         pow(sceneData->orbifoldInfo.r3, threadData->mirrorCounter[2]);
-//  unsigned* mirrors = new unsigned[3];
-//  OrbifoldDirection d1;
-//  d1.base = Vector2d(-0.5, -0.4330127018922193) * sceneData->orbifoldInfo.scale.x();
-//  d1.o = Vector2d(-0.8660254037844386, 0.5000000000000001);
-//  d1.m = Vector2d(0.5000000000000001, 0.8660254037844386);
-//  d1.base = Vector2d(-0.5, -0.4330127018922193) * sceneData->orbifoldInfo.scale.x();
-//  d1.o = Vector2d(0, 1);
-//  d1.m = Vector2d(1, 0);
-//  d1.numOffsets = 2;
-//  d1.offsetArray[0] = 0;
-//  d1.offsetArray[1] = 1.5;//-1.5 * sceneData->orbifoldInfo.scale.x();
-//
-//  d1.numMirrors = 3;
-//  d1.indexArray[0] = 0;
-//  d1.indexArray[1] = 1;
-//  d1.indexArray[2] = 2;
-//
-//  d1.v_sep = 0.8660254037844386 * sceneData->orbifoldInfo.scale.x();
-//  d1.h_sep = sceneData->orbifoldInfo.scale.x();
-//
-//
-//  const Vector2d m1(0.5000000000000001, 0.8660254037844386);
-//  const Vector2d o1(-0.8660254037844386, 0.5000000000000001);
-//  const Vector2d b10 = Vector2d(-0.5, -0.4330127018922193) * sceneData->orbifoldInfo.scale.x();
-//  const Vector2d b11(0.0, 0.4330127018922193);
-//
-//  const double SQRT_3 = 1.7320508075688772;
-//  const Vector3d ctrTx(0, 0, -SQRT_3/4);
-//  const Vector3d scale = Vector3d(sceneData->orbifoldInfo.scale.x(), sceneData->orbifoldInfo.scale.y(), sceneData->orbifoldInfo.scale.x());
-//  const Vector3d rayStart = ctrTx + ray.Origin / scale;
-//  const Vector3d rayEnd = ctrTx + isect.IPoint / scale;
-//  const Vector3d o2(0, 0, 1);
-//  const Vector3d op2(1, 0, 0);
-//  const Vector3d b20(-0.5, 0, -0.4330127018922193);
-//  const Vector3d b21(0.0, 0, 0.4330127018922193);
-//  const Vector3d o2(0, 0, 1);
-//  const Vector3d op2(1, 0, 0);
-//  const Vector3d b20(-0.5, 0, -0.4330127018922193);
-//  const Vector3d b21(0.0, 0, 0.4330127018922193);
-//  delete mirrors;
-//  return 0;
+  unsigned mirrorCount[3] = {0, 0, 0};
+
+  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[0], mirrorCount);
+  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[1], mirrorCount);
+  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), sceneData->orbifoldInfo.mirrorDirs[2], mirrorCount);
+
+  return pow(sceneData->orbifoldInfo.r1, mirrorCount[0]) *
+         pow(sceneData->orbifoldInfo.r2, mirrorCount[1]) *
+         pow(sceneData->orbifoldInfo.r3, mirrorCount[2]);
 }
 
 //double Trace::ComputeX333OrbifoldAttenuation(const Ray& ray, const Intersection& isect) const
