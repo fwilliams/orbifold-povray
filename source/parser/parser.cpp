@@ -7007,7 +7007,6 @@ void Parser::Parse_Global_Settings()
             EXPECT
                 CASE(XX_TOKEN)
                     Warning("** Orbifold");
-                    sceneData->orbifoldData.type = XX;
                     Parse_Vector(sceneData->orbifoldData.scale);
 
                     sceneData->orbifoldData.r1 = Parse_Float();
@@ -7019,7 +7018,6 @@ void Parser::Parse_Global_Settings()
 
                 CASE(X2222_TOKEN)
                     Warning("*2222 Orbifold");
-                    sceneData->orbifoldData.type = X2222;
                     Parse_Vector(sceneData->orbifoldData.scale);
 
                     sceneData->orbifoldData.r1 = Parse_Float();
@@ -7035,7 +7033,6 @@ void Parser::Parse_Global_Settings()
 
                 CASE(X333_TOKEN)
                     Warning("*333 Orbifold");
-                    sceneData->orbifoldData.type = X333;
 
                     Parse_Vector(sceneData->orbifoldData.scale);
                     sceneData->orbifoldData.r1 = Parse_Float();
@@ -7060,7 +7057,6 @@ void Parser::Parse_Global_Settings()
 
                 CASE(X632_TOKEN)
                     Warning("*632 Orbifold");
-                    sceneData->orbifoldData.type = X632;
                     Parse_Vector(sceneData->orbifoldData.scale);
                     sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
@@ -7071,7 +7067,6 @@ void Parser::Parse_Global_Settings()
 
                 CASE(X442_TOKEN)
                     Warning("*442 Orbifold");
-                    sceneData->orbifoldData.type = X442;
                     Parse_Vector(sceneData->orbifoldData.scale);
                     sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();

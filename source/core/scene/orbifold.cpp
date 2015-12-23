@@ -2,64 +2,12 @@
 
 namespace pov {
 
-void OrbifoldData::InitX333OrbifoldData() {
-  attenuateFunction = &OrbifoldData::attenuateX333;
 
-  const double SQRT_3_OVER_2 = 0.8660254037844386;
-  const double SQRT_3_OVER_4 = 0.4330127018922193;
-
-  // Horizontal mirrors
-  mirrorDirs[0].base = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
-  mirrorDirs[0].o = Vector2d(0, 1);
-  mirrorDirs[0].m = Vector2d(1, 0);
-  mirrorDirs[0].numOffsets = 2;
-  mirrorDirs[0].offsetArray[0] = 0;
-  mirrorDirs[0].offsetArray[1] = 1.5 * scale.x();
-  mirrorDirs[0].numMirrors = 3;
-  mirrorDirs[0].indexArray[0] = 0;
-  mirrorDirs[0].indexArray[1] = 1;
-  mirrorDirs[0].indexArray[2] = 2;
-  mirrorDirs[0].v_sep = SQRT_3_OVER_2 * scale.x();
-  mirrorDirs[0].h_sep = scale.x();
-
-
-  // Right tilted mirrors
-  mirrorDirs[1].base = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
-  mirrorDirs[1].o = Vector2d(-SQRT_3_OVER_2, 0.5);
-  mirrorDirs[1].m = Vector2d(0.5, SQRT_3_OVER_2);
-  mirrorDirs[1].numOffsets = 2;
-  mirrorDirs[1].offsetArray[0] = 0;
-  mirrorDirs[1].offsetArray[1] = 1.5 * scale.x();
-  mirrorDirs[1].numMirrors = 3;
-  mirrorDirs[1].indexArray[0] = 2;
-  mirrorDirs[1].indexArray[1] = 1;
-  mirrorDirs[1].indexArray[2] = 0;
-  mirrorDirs[1].v_sep = SQRT_3_OVER_2 * scale.x();
-  mirrorDirs[1].h_sep = scale.x();
-
-
-  // Left tilted mirrors
-  mirrorDirs[2].base = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
-  mirrorDirs[2].o = Vector2d(SQRT_3_OVER_2, 0.5);
-  mirrorDirs[2].m = Vector2d(-0.5, SQRT_3_OVER_2);
-  mirrorDirs[2].numOffsets = 2;
-  mirrorDirs[2].offsetArray[0] = 0;
-  mirrorDirs[2].offsetArray[1] = 1.5 * scale.x();
-  mirrorDirs[2].numMirrors = 3;
-  mirrorDirs[2].indexArray[0] = 0;
-  mirrorDirs[2].indexArray[1] = 1;
-  mirrorDirs[2].indexArray[2] = 2;
-  mirrorDirs[2].v_sep = SQRT_3_OVER_2 * scale.x();
-  mirrorDirs[2].h_sep = scale.x();
-}
-
-void OrbifoldData::InitX2222OrbifoldData() {
-  attenuateFunction = &OrbifoldData::attenuateX2222;
-}
-
-void OrbifoldData::InitXXOrbifoldData() {
-  attenuateFunction = &OrbifoldData::attenuateXX;
-}
+/*
+ * Custom math functions which perform better than the ones provided by the standard library
+ * max, floor, and ceil all perform expensive branching, these ones don't branch and give
+ * a significant speedup to functions in this module which are called for every ray
+ */
 
 static inline unsigned fastMax(unsigned x, unsigned y) {
   return (x ^ ((x ^ y) & -(x < y)));
@@ -75,61 +23,163 @@ static inline int fastCeil(double x) {
   return i + 1 - ( i > x ); /* convert trunc to ceil */
 }
 
-void OrbifoldData::countMirrorsHetero(const Vector2d& S, const Vector2d& E,
-    const Vector2d& dir, const OrbifoldDirection& d, unsigned* mirrors) const {
-  const double So = dot(S, d.o);
-  const double dir_dot_o = dot(dir, d.o);
 
+
+/*
+ * OrbifoldData initialization functions
+ */
+
+void OrbifoldData::InitX333OrbifoldData() {
+  attenuate_callback = &OrbifoldData::attenuateX333;
+
+  const double SQRT_3_OVER_2 = 0.8660254037844386;
+  const double SQRT_3_OVER_4 = 0.4330127018922193;
+
+  direction_info[0].h_sep = scale.x();
+  direction_info[0].v_sep = SQRT_3_OVER_2 * scale.x();
+  direction_info[0].offset_array[0] = 0;
+  direction_info[0].offset_array[1] = 1.5 * scale.x();
+  direction_info[0].base = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
+}
+
+void OrbifoldData::InitX2222OrbifoldData() {
+  attenuate_callback = &OrbifoldData::attenuateX2222;
+}
+
+void OrbifoldData::InitXXOrbifoldData() {
+  attenuate_callback = &OrbifoldData::attenuateXX;
+}
+
+/*
+ * Counts which mirrors are intersected by the straight path starting at S, and ending at E
+ * where the mirrors are configured according to s_dir and d_dir.
+ * The result is stored in mirror_count.
+ */
+void OrbifoldData::countMirrorsHeterogeneous(const Vector2d& S, const Vector2d& E,
+    const Vector2d& dir, const StaticDirectionInfo& s_dir, const DynamicDirectionInfo& d_dir,
+    unsigned* mirror_count) const {
+
+  // The projection of the start position onto the direction perpendicular to the mirror plane
+  const double So = dot(S, s_dir.o);
+
+  // The projection of the path direction onto the direction perpendicular to the mirror plane
+  const double dir_dot_o = dot(dir, s_dir.o);
+
+  // Compute the index of the first and last mirror planes intersected by the path
   int m0 = 0, mE = 0;
-
   if(dir_dot_o > 0) {
-    m0 = fastCeil(So / d.v_sep);
-    mE = fastFloor(dot(E, d.o) / d.v_sep);
+    m0 = fastCeil(So / d_dir.v_sep);
+    mE = fastFloor(dot(E, s_dir.o) / d_dir.v_sep);
   } else if (dir_dot_o < 0) {
-    m0 = fastFloor(So / d.v_sep);
-    mE = fastCeil(dot(E, d.o) / d.v_sep);
+    m0 = fastFloor(So / d_dir.v_sep);
+    mE = fastCeil(dot(E, s_dir.o) / d_dir.v_sep);
   } else {
     // Disregard rays parallel to this mirror direction since they won't intersect any mirrors
     return;
   }
 
-  // Bail out if ray is parallel to mirrors
-//  if(dir_dot_o == 0) { return; }
-//
-//  const int signbit = static_cast<int>(dir_dot_o < 0);
-//  const int m0 = fastCeil(So / d.v_sep) - signbit;
-//  const int mE = fastFloor(dot(E, d.o) / d.v_sep) + signbit;
-
-  const double k0 = (m0 * d.v_sep - So) / dir_dot_o;
-  const double kE = (mE * d.v_sep - So) / dir_dot_o;
+  // The distance along the path of the first and last mirror intersections
+  const double k0 = (m0 * d_dir.v_sep - So) / dir_dot_o;
+  const double kE = (mE * d_dir.v_sep - So) / dir_dot_o;
 
   // Bail out if the path doesn't cross a mirror
   if(kE < k0) { return; }
 
+  // The total number of mirrors intersected by the path
+  const unsigned num_mirrors = abs(mE - m0);
 
-  const unsigned numMirrors = abs(mE - m0);
-  const double  dK = (kE - k0) / fastMax(numMirrors, 1);//max<unsigned>(numMirrors, 1);
+  // dK is the distance along the path between mirrors
+  const double  dK = (kE - k0) / fastMax(num_mirrors, 1);
 
+  // k is the distance along the path of each mirror plane intersected
   double k = k0;
-  unsigned i = abs(m0) % d.numOffsets;
+  // i keeps track of the type of mirror boundary
+  unsigned i = abs(m0) % DynamicDirectionInfo::OFFSET_ARRAY_LEN;
 
-  for(unsigned j = 0; j <= numMirrors; j++) {
+  for(unsigned j = 0; j <= num_mirrors; j++) {
     // Where the ray intersects the mirror line
     const Vector2d P = S + k * dir;
 
-    // Project the intersection onto m, and figure out which type of mirror was intersected
-    const int l = floor((dot(P, d.m) + d.offsetArray[i]) / d.h_sep);
-    mirrors[d.indexArray[abs(l % (int)(d.numMirrors))]] += 1;
+    // Project the intersection onto the mirror plane, and figure out which type of mirror was intersected
+    const int l = fastFloor((dot(P, s_dir.m) + d_dir.offset_array[i]) / d_dir.h_sep);
+    mirror_count[s_dir.index_array[abs(l % static_cast<int>(StaticDirectionInfo::NUM_MIRRORS))]] += 1;
 
     k += dK;
-    i = (i + 1) % d.numOffsets;
+    i = (i + 1) % DynamicDirectionInfo::OFFSET_ARRAY_LEN;
   }
 }
 
-/*
- * Orbifold attenuation functions
- */
 
+unsigned OrbifoldData::countMirrorsHomogeneous(const Vector2d& S, const Vector2d& E,
+                        const Vector2d& dir, const StaticDirectionInfo& s_dir,
+                        const DynamicDirectionInfo& d_dir) const {
+  // The projection of the start position onto the direction perpendicular to the mirror plane
+  const double So = dot(S, s_dir.o);
+
+  // The projection of the path direction onto the direction perpendicular to the mirror plane
+  const double dir_dot_o = dot(dir, s_dir.o);
+
+  // Compute the index of the first and last mirror planes intersected by the path
+  int m0 = 0, mE = 0;
+  if(dir_dot_o > 0) {
+    m0 = fastCeil(So / d_dir.v_sep);
+    mE = fastFloor(dot(E, s_dir.o) / d_dir.v_sep);
+  } else if (dir_dot_o < 0) {
+    // Note: Here the sign is inversed so that m0 < mE if the ray path intersects no mirrors
+    m0 = -fastFloor(So / d_dir.v_sep);
+    mE = -fastCeil(dot(E, s_dir.o) / d_dir.v_sep);
+  } else {
+    // Disregard rays parallel to this mirror direction since they won't intersect any mirrors
+    return 0;
+  }
+
+  // If the ray intersects no mirrors, bail out
+  if(m0 < mE) { return 0; }
+
+  // The total number of mirrors intersected by the path
+  return abs(mE - m0);
+
+  // The distance along the path of the first and last mirror intersections
+//  const double k0 = (m0 * d_dir.v_sep - So) / dir_dot_o;
+//  const double kE = (mE * d_dir.v_sep - So) / dir_dot_o;
+//
+//  // Bail out if the path doesn't cross a mirror
+//  if(kE < k0) { return 0; }
+
+
+}
+
+/*
+ * Ray attenuation functions. The attenuate callback pointer (attenuate_callback) is set to one of these methods
+ */
+double OrbifoldData::attenuateX333(const Ray& ray, const Intersection& isect) const {
+  const double SQRT_3_OVER_2 = 0.8660254037844386;
+  const double SQRT_3_OVER_4 = 0.4330127018922193;
+
+//  const Vector2d B = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
+  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - direction_info[0].base;
+  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - direction_info[0].base;
+
+  const StaticDirectionInfo d1 = { Vector2d{0, 1},
+                                 Vector2d{1, 0},
+                                 { 0, 1, 2 } };
+
+  const StaticDirectionInfo d2 = { Vector2d{-SQRT_3_OVER_2, 0.5},
+                                 Vector2d{0.5, SQRT_3_OVER_2},
+                                 { 2, 1, 0 } };
+
+  const StaticDirectionInfo d3 = { Vector2d{SQRT_3_OVER_2, 0.5},
+                                 Vector2d{-0.5, SQRT_3_OVER_2},
+                                 { 0, 1, 2 } };
+
+  unsigned mirrorCount[3] = {0, 0, 0};
+
+  countMirrorsHeterogeneous(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), d1, direction_info[0], mirrorCount);
+  countMirrorsHeterogeneous(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), d2, direction_info[0], mirrorCount);
+  countMirrorsHeterogeneous(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), d3, direction_info[0], mirrorCount);
+
+  return pow(r1, mirrorCount[0]) * pow(r2, mirrorCount[1]) * pow(r3, mirrorCount[2]);
+}
 
 double OrbifoldData::attenuateX2222(const Ray& ray, const Intersection& isect) const {
   typedef GenericVector2d<POV_INT64> IntVector2d;
@@ -216,21 +266,6 @@ double OrbifoldData::attenuateXX(const Ray& ray, const Intersection& isect) cons
 
 double OrbifoldData::attenuateX632(const Ray& ray, const Intersection& isect) const {
   return 0;
-}
-
-double OrbifoldData::attenuateX333(const Ray& ray, const Intersection& isect) const {
-  const Vector2d B = mirrorDirs[0].base;
-  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - B;
-  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - B;
-
-  unsigned mirrorCount[3] = {0, 0, 0};
-
-  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), mirrorDirs[0], mirrorCount);
-  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), mirrorDirs[1], mirrorCount);
-  countMirrorsHetero(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), mirrorDirs[2], mirrorCount);
-
-  return pow(r1, mirrorCount[0]) * pow(r2, mirrorCount[1]) * pow(r3, mirrorCount[2]);
-  //  return att333(ray, isect, *this);
 }
 
 double OrbifoldData::attenuateX442(const Ray& ray, const Intersection& isect) const {

@@ -43,20 +43,29 @@
 
 namespace pov {
 
-enum OrbifoldType {
-  XX, X2222, X333, X442, X632, TRIVIAL
-};
-
-
 struct OrbifoldData {
-  OrbifoldType type;
+  /*
+   * A scaling factor for the scense
+   */
   Vector3d scale;
+
+  /*
+   * The reflectivity of each mirror. Depending on the orbifold type,
+   * not all of these are used
+   */
   double r1, r2, r3, r4;
 
+  /*
+   * Computes the attenuation along a ray which may intersect one or more mirror boundaries
+   * in the unfolded scene
+   */
   inline double attenuate(const Ray& r, const Intersection& i) const {
-    return (this->*attenuateFunction)(r, i);
+    return (this->*attenuate_callback)(r, i);
   }
 
+  /*
+   * Initialize this structure based on the type of orbifold present
+   */
   void InitX333OrbifoldData();
   void InitX2222OrbifoldData();
   void InitXXOrbifoldData();
@@ -64,38 +73,64 @@ struct OrbifoldData {
   void InitX632OrbifoldData();
 
 private:
-  struct OrbifoldDirection {
-    Vector2d o, m, base; //8*2 * 3 = 48
-    double v_sep, h_sep; // + 16 = 64
-    double offsetArray[2]; // + 16 = 80
-    unsigned indexArray[3]; // + 12 = 82
-    unsigned numOffsets, numMirrors; // + 8 = 90
+
+  /*
+   * Static information about mirror directions
+   */
+  struct StaticDirectionInfo {
+    Vector2d o, m;
+    unsigned index_array[3];
+    static const unsigned NUM_MIRRORS = 3;
   };
 
-  OrbifoldDirection mirrorDirs[4];
+  /*
+   * Runtime information about mirror directions
+   */
+  struct DynamicDirectionInfo {
+    Vector2d base;
+    double v_sep, h_sep;
+    double offset_array[2];
+    static const unsigned OFFSET_ARRAY_LEN = 2;
+  };
 
-  void countMirrorsHetero(const Vector2d& S, const Vector2d& E,
-                          const Vector2d& dir, const OrbifoldDirection& d,
-                          unsigned* mirrors) const;
+  /*
+   * Mirror attenuation callback type
+   */
+  typedef double (OrbifoldData::*OrbifoldAttenuationCallback)(const Ray& r, const Intersection& isect) const;
+
+  /*
+   * Information about adjacent mirror directions set at runtime
+   */
+  DynamicDirectionInfo direction_info[2];
+
+  /*
+   * The callback function which calculates attenuation from mirror boundary intersections
+   * This gets set at runtime to one of the attenuate*() functions based on the type of orbifold
+   * specified.
+   */
+  OrbifoldAttenuationCallback attenuate_callback;
+
+  /*
+   * Called when each mirror plane consists of a repeating pattern of different mirrors.
+   * Counts which mirrors are intersected by the straight path starting at S, and ending at E
+   * where the mirrors are configured according to s_dir and d_dir.
+   * The result is stored in mirror_count.
+   */
+  void countMirrorsHeterogeneous(const Vector2d& S, const Vector2d& E,
+                          const Vector2d& dir, const StaticDirectionInfo& s_dir,
+                          const DynamicDirectionInfo& d_dir, unsigned* mirrors) const;
+
+
+  unsigned countMirrorsHomogeneous(const Vector2d& S, const Vector2d& E,
+                          const Vector2d& dir, const StaticDirectionInfo& s_dir,
+                          const DynamicDirectionInfo& d_dir) const;
 
   double attenuateX333(const Ray& ray, const Intersection& isect) const;
   double attenuateX2222(const Ray& ray, const Intersection& isect) const;
   double attenuateXX(const Ray& ray, const Intersection& isect) const;
   double attenuateX632(const Ray& ray, const Intersection& isect) const;
   double attenuateX442(const Ray& ray, const Intersection& isect) const;
-
-  typedef double (OrbifoldData::*OrbifoldAttenuationCallback)(const Ray& r, const Intersection& isect) const;
-
-  OrbifoldAttenuationCallback attenuateFunction;
 };
-
-//struct OrbifoldInfo {
-//  OrbifoldType type;
-//  Vector3d scale;
-//  float r1, r2, r3, r4;
-//  OrbifoldDirection mirrorDirs[4];
-//};
-//void initOrbifoldX333(OrbifoldInfo& info);
 
 }
 
