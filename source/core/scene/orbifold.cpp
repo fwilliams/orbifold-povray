@@ -44,9 +44,14 @@ void OrbifoldData::InitX333OrbifoldData() {
 
 void OrbifoldData::InitX2222OrbifoldData() {
   attenuate_callback = &OrbifoldData::attenuateX2222;
+  direction_info[0].v_sep = scale.z();
+  direction_info[1].v_sep = scale.x();
+  direction_info[0].base = Vector2d(-0.5* scale.x(), -0.5 * scale.z());
 }
 
 void OrbifoldData::InitXXOrbifoldData() {
+  direction_info[0].v_sep = scale.z();
+  direction_info[0].base = Vector2d(-0.5* scale.x(), -0.5 * scale.z());
   attenuate_callback = &OrbifoldData::attenuateXX;
 }
 
@@ -110,6 +115,46 @@ void OrbifoldData::countMirrorsHeterogeneous(const Vector2d& S, const Vector2d& 
 }
 
 
+void OrbifoldData::countMirrorsHomogeneous(const Vector2d& S, const Vector2d& E,
+                        const Vector2d& dir, const StaticDirectionInfo& s_dir,
+                        const DynamicDirectionInfo& d_dir, unsigned* mirrors) const {
+  // The projection of the start position onto the direction perpendicular to the mirror plane
+  const double So = dot(S, s_dir.o);
+
+  // The projection of the path direction onto the direction perpendicular to the mirror plane
+  const double dir_dot_o = dot(dir, s_dir.o);
+
+  // Compute the index of the first and last mirror planes intersected by the path
+  int m0 = 0, mE = 0;
+  if(dir_dot_o > 0) {
+    m0 = fastCeil(So / d_dir.v_sep);
+    mE = fastFloor(dot(E, s_dir.o) / d_dir.v_sep);
+  } else if (dir_dot_o < 0) {
+    // Note: Here the sign is inversed so that m0 > mE if the ray path intersects no mirrors
+    m0 = -fastFloor(So / d_dir.v_sep);
+    mE = -fastCeil(dot(E, s_dir.o) / d_dir.v_sep);
+  } else {
+    // Disregard rays parallel to this mirror direction since they won't intersect any mirrors
+    return;
+  }
+
+  // If the ray intersects no mirrors, bail out
+  if(m0 > mE) { return; }
+
+  // The index in the mirror array of the first mirror intersected
+  const unsigned m0_type = m0 & 1;
+
+  // The total number of mirrors intersected by the path
+  const unsigned num_mirrors = abs(mE - m0) + 1;
+
+  // Used to add one in odd cases
+  const unsigned mirror_parity = num_mirrors & 1;
+
+  mirrors[s_dir.index_array[m0_type]] += (num_mirrors/2) + mirror_parity;
+  mirrors[s_dir.index_array[(m0_type + 1) % 2]] += (num_mirrors/2);
+}
+
+
 unsigned OrbifoldData::countMirrorsHomogeneous(const Vector2d& S, const Vector2d& E,
                         const Vector2d& dir, const StaticDirectionInfo& s_dir,
                         const DynamicDirectionInfo& d_dir) const {
@@ -136,132 +181,79 @@ unsigned OrbifoldData::countMirrorsHomogeneous(const Vector2d& S, const Vector2d
   // If the ray intersects no mirrors, bail out
   if(m0 < mE) { return 0; }
 
-  // The total number of mirrors intersected by the path
+  // The number of mirrors intersected
   return abs(mE - m0);
-
-  // The distance along the path of the first and last mirror intersections
-//  const double k0 = (m0 * d_dir.v_sep - So) / dir_dot_o;
-//  const double kE = (mE * d_dir.v_sep - So) / dir_dot_o;
-//
-//  // Bail out if the path doesn't cross a mirror
-//  if(kE < k0) { return 0; }
-
-
 }
+
 
 /*
  * Ray attenuation functions. The attenuate callback pointer (attenuate_callback) is set to one of these methods
  */
+
 double OrbifoldData::attenuateX333(const Ray& ray, const Intersection& isect) const {
   const double SQRT_3_OVER_2 = 0.8660254037844386;
   const double SQRT_3_OVER_4 = 0.4330127018922193;
 
-//  const Vector2d B = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
   const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - direction_info[0].base;
   const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - direction_info[0].base;
+  const Vector2d dir = Vector2d(ray.Direction.x(), ray.Direction.z());
 
-  const StaticDirectionInfo d1 = { Vector2d{0, 1},
+  const StaticDirectionInfo sdi1 = { Vector2d{0, 1},
                                  Vector2d{1, 0},
                                  { 0, 1, 2 } };
 
-  const StaticDirectionInfo d2 = { Vector2d{-SQRT_3_OVER_2, 0.5},
+  const StaticDirectionInfo sdi2 = { Vector2d{-SQRT_3_OVER_2, 0.5},
                                  Vector2d{0.5, SQRT_3_OVER_2},
                                  { 2, 1, 0 } };
 
-  const StaticDirectionInfo d3 = { Vector2d{SQRT_3_OVER_2, 0.5},
+  const StaticDirectionInfo sdi3 = { Vector2d{SQRT_3_OVER_2, 0.5},
                                  Vector2d{-0.5, SQRT_3_OVER_2},
                                  { 0, 1, 2 } };
 
   unsigned mirrorCount[3] = {0, 0, 0};
 
-  countMirrorsHeterogeneous(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), d1, direction_info[0], mirrorCount);
-  countMirrorsHeterogeneous(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), d2, direction_info[0], mirrorCount);
-  countMirrorsHeterogeneous(S, E, Vector2d(ray.Direction.x(), ray.Direction.z()), d3, direction_info[0], mirrorCount);
+  countMirrorsHeterogeneous(S, E, dir, sdi1, direction_info[0], mirrorCount);
+  countMirrorsHeterogeneous(S, E, dir, sdi2, direction_info[0], mirrorCount);
+  countMirrorsHeterogeneous(S, E, dir, sdi3, direction_info[0], mirrorCount);
 
   return pow(r1, mirrorCount[0]) * pow(r2, mirrorCount[1]) * pow(r3, mirrorCount[2]);
 }
 
 double OrbifoldData::attenuateX2222(const Ray& ray, const Intersection& isect) const {
-  typedef GenericVector2d<POV_INT64> IntVector2d;
+  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - direction_info[0].base;
+  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - direction_info[0].base;
+  const Vector2d dir = Vector2d(ray.Direction.x(), ray.Direction.z());
 
-  const Vector3d rayStart = ray.Origin / scale;
-  const Vector3d rayEnd = isect.IPoint / scale;
+  const StaticDirectionInfo sdi1 = { Vector2d{0, 1},
+                                 Vector2d{1, 0},
+                                 { 0, 1, 0 } };
 
-  const IntVector2d latticeStart(floor(rayStart.x() + 0.5), floor(rayStart.z() + 0.5));
-  const IntVector2d latticeEnd(floor(rayEnd.x() + 0.5), floor(rayEnd.z() + 0.5));
-  const IntVector2d latticeDist(abs(latticeStart.x() - latticeEnd.x()), abs(latticeStart.y() - latticeEnd.y()));
+  const StaticDirectionInfo sdi2 = { Vector2d{1, 0},
+                                 Vector2d{0, 1},
+                                 { 2, 3, 0 } };
 
-  // Bail out if the ray doesn't attenuate
-  if(latticeDist.x() == 0 && latticeDist.y() == 0) {
-    return 1.0;
-  }
+  unsigned mirrorCount[4] = {0, 0, 0, 0};
 
-  // Whether we're starting from even and odd indices in x and y
-  const IntVector2d latticeMod(latticeStart.x() % 2, latticeStart.y() % 2);
+  countMirrorsHomogeneous(S, E, dir, sdi1, direction_info[0], mirrorCount);
+  countMirrorsHomogeneous(S, E, dir, sdi2, direction_info[1], mirrorCount);
 
-  // Mirror vector is (left, top, right, bottom)
-  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
-  POV_INT64 x1 = latticeDist.x() / 2;
-  POV_INT64 x2 = latticeDist.x() - x1;
-  POV_INT64 y1 = latticeDist.y() / 2;
-  POV_INT64 y2 = latticeDist.y() - y1;
-
-  // Even and going left (-) or odd and going right (+)
-  if((latticeMod.x() == 0 && latticeStart.x() > latticeEnd.x()) ||
-     (latticeMod.x() == 1 && latticeStart.x() < latticeEnd.x())) {
-    n0 = x2;
-    n2 = x1;
-  } else if(latticeDist.x() != 0) { // Even and going right (+) or Odd and going left (-)
-    n0 = x1;
-    n2 = x2;
-  }
-
-  // Even and going down (-) or odd and going up (+)
-  if((latticeMod.y() == 0 && latticeStart.y() > latticeEnd.y()) ||
-     (latticeMod.y() == 1 && latticeStart.y() < latticeEnd.y())) {
-    n3 = y2;
-    n1 = y1;
-  } else if(latticeDist.y() != 0) { // Even and going up (+) or Odd and going down (-)
-    n3 = y1;
-    n1 = y2;
-  }
-
-  return pow(r1, (double)n0) * pow(r2, (double)n1) *
-         pow(r3, (double)n2) * pow(r4, (double)n3);
+  return pow(r1, mirrorCount[0]) * pow(r2, mirrorCount[1]) * pow(r3, mirrorCount[2]) * pow(r4, mirrorCount[3]);
 }
 
 double OrbifoldData::attenuateXX(const Ray& ray, const Intersection& isect) const {
-  typedef GenericVector2d<POV_INT64> IntVector2d;
+  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - direction_info[0].base;
+  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - direction_info[0].base;
+  const Vector2d dir = Vector2d(ray.Direction.x(), ray.Direction.z());
 
-  const Vector3d rayStart = ray.Origin / scale;
-  const Vector3d rayEnd = isect.IPoint / scale;
+  const StaticDirectionInfo sdi = { Vector2d{0, 1},
+                                    Vector2d{1, 0},
+                                    { 0, 1, 0 } };
 
-  const POV_INT64 latticeStart = floor(rayStart.z() + 0.5);
-  const POV_INT64 latticeEnd = floor(rayEnd.z() + 0.5);
-  const POV_INT64 latticeDist = abs(latticeStart - latticeEnd);
+  unsigned mirrorCount[2] = {0, 0};
 
-  // Bail out if the ray doesn't attenuate
-  if(latticeDist == 0) { return 1.0; }
+  countMirrorsHomogeneous(S, E, dir, sdi, direction_info[0], mirrorCount);
 
-  // Whether we're starting from even and odd indices in x and y
-  const POV_INT64 latticeMod = latticeStart % 2;
-
-  // Mirror vector is (left, top, right, bottom)
-  POV_INT64 n0 = 0, n1 = 0, n2 = 0, n3 = 0;
-  POV_INT64 x1 = latticeDist / 2;
-  POV_INT64 x2 = latticeDist - x1;
-
-  // Even and going backwards (-) or odd and going forwards (+)
-  if((latticeMod == 0 && latticeStart > latticeEnd) ||
-     (latticeMod == 1 && latticeStart < latticeEnd)) {
-    n0 = x2;
-    n1 = x1;
-  } else if(latticeDist != 0) { // Even and going right (+) or Odd and going left (-)
-    n0 = x1;
-    n1 = x2;
-  }
-
-  return pow(r1, (double)n0) * pow(r2, (double)n1);
+  return pow(r1, mirrorCount[0]) * pow(r2, mirrorCount[1]);
 }
 
 double OrbifoldData::attenuateX632(const Ray& ray, const Intersection& isect) const {
