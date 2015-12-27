@@ -268,8 +268,42 @@ double OrbifoldData::attenuateXX(const Ray& ray, const Intersection& isect) cons
 }
 
 double OrbifoldData::attenuateX632(const Ray& ray, const Intersection& isect) const {
-  return 0;
+  const double SQRT_3_OVER_2 = 0.8660254037844386;
+  const double SQRT_3_OVER_4 = 0.4330127018922193;
+
+  const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - direction_info[0].base;
+  const Vector2d E = Vector2d(isect.IPoint.x(), isect.IPoint.z()) - direction_info[0].base;
+  const Vector2d dir = Vector2d(ray.Direction.x(), ray.Direction.z());
+
+  const StaticDirectionInfo sdi1 = { Vector2d{0, 1},
+                                     Vector2d{1, 0},
+                                     { 0, 1, 2 } };
+
+  const StaticDirectionInfo sdi2 = { Vector2d{-SQRT_3_OVER_2, 0.5},
+                                     Vector2d{0.5, SQRT_3_OVER_2},
+                                     { 2, 1, 0 } };
+
+  const StaticDirectionInfo sdi3 = { Vector2d{SQRT_3_OVER_2, 0.5},
+                                     Vector2d{-0.5, SQRT_3_OVER_2},
+                                     { 0, 1, 2 } };
+
+  const StaticDirectionInfo sdi4 = { Vector2d{1, 0},
+                                     Vector2d{0, 1},
+                                     { 0, 0, 0 } };
+
+  const StaticDirectionInfo sdi5 = { Vector2d{0.5, SQRT_3_OVER_2},
+                                     Vector2d{-0.5, SQRT_3_OVER_2},
+                                     { 0, 1, 2 } };
+
+  const StaticDirectionInfo sdi6 = { Vector2d{0.5, -SQRT_3_OVER_2},
+                                     Vector2d{-0.5, SQRT_3_OVER_2},
+                                     { 0, 1, 2 } };
+
+  unsigned mirror_count[3] = {0, 0, 0};
+
+
 }
+
 
 double OrbifoldData::attenuateX442(const Ray& ray, const Intersection& isect) const {
   const Vector2d S = Vector2d(ray.Origin.x(), ray.Origin.z()) - direction_info[0].base;
