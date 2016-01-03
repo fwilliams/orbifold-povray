@@ -50,12 +50,25 @@ void OrbifoldData::InitX2222OrbifoldData() {
 }
 
 void OrbifoldData::InitXXOrbifoldData() {
+  attenuate_callback = &OrbifoldData::attenuateXX;
   direction_info[0].v_sep = scale.z();
   direction_info[0].base = Vector2d(-0.5* scale.x(), -0.5 * scale.z());
-  attenuate_callback = &OrbifoldData::attenuateXX;
 }
 
 void OrbifoldData::InitX632OrbifoldData() {
+  attenuate_callback = &OrbifoldData::attenuateX632;
+
+  const double SQRT_3_OVER_2 = 0.8660254037844386;
+  const double SQRT_3_OVER_4 = 0.4330127018922193;
+  const double SQRT_3_OVER_6 = 0.28867513459481287;
+
+  direction_info[0].h_sep = scale.x();
+  direction_info[0].v_sep = SQRT_3_OVER_2 * scale.x();
+  direction_info[0].offset_array[0] = 0;
+  direction_info[0].offset_array[1] = 1.5 * scale.x();
+  direction_info[0].base = Vector2d(0.5 - (1.0/3.0), SQRT_3_OVER_2 - SQRT_3_OVER_6) * scale.x();
+
+  direction_info[1].v_sep = 1.5 * scale.x();
 }
 
 void OrbifoldData::InitX442OrbifoldData() {
@@ -277,31 +290,43 @@ double OrbifoldData::attenuateX632(const Ray& ray, const Intersection& isect) co
 
   const StaticDirectionInfo sdi1 = { Vector2d{0, 1},
                                      Vector2d{1, 0},
-                                     { 0, 1, 2 } };
+                                     { 2, 0, 2 } };
 
-  const StaticDirectionInfo sdi2 = { Vector2d{-SQRT_3_OVER_2, 0.5},
+  // Homogeneous
+  const StaticDirectionInfo sdi2 = { Vector2d{-0.5, SQRT_3_OVER_2},
+                                     Vector2d{SQRT_3_OVER_2, 0.5},
+                                     { 1, 1, 1 } };
+
+  const StaticDirectionInfo sdi3 = { Vector2d{-SQRT_3_OVER_2, 0.5},
                                      Vector2d{0.5, SQRT_3_OVER_2},
-                                     { 2, 1, 0 } };
+                                     { 2, 0, 2 } };
 
-  const StaticDirectionInfo sdi3 = { Vector2d{SQRT_3_OVER_2, 0.5},
-                                     Vector2d{-0.5, SQRT_3_OVER_2},
-                                     { 0, 1, 2 } };
-
-  const StaticDirectionInfo sdi4 = { Vector2d{1, 0},
+  // Homogeneous
+  const StaticDirectionInfo sdi4 = { Vector2d{-1, 0},
                                      Vector2d{0, 1},
-                                     { 0, 0, 0 } };
+                                     { 1, 1, 1 } };
 
-  const StaticDirectionInfo sdi5 = { Vector2d{0.5, SQRT_3_OVER_2},
-                                     Vector2d{-0.5, SQRT_3_OVER_2},
-                                     { 0, 1, 2 } };
 
-  const StaticDirectionInfo sdi6 = { Vector2d{0.5, -SQRT_3_OVER_2},
-                                     Vector2d{-0.5, SQRT_3_OVER_2},
-                                     { 0, 1, 2 } };
+  const StaticDirectionInfo sdi5 = { Vector2d{SQRT_3_OVER_2, 0.5},
+                                     Vector2d{0.5, -SQRT_3_OVER_2},
+                                     { 2, 0, 2 } };
+
+  // Homogeneous
+  const StaticDirectionInfo sdi6 = { Vector2d{0.5, SQRT_3_OVER_2},
+                                     Vector2d{SQRT_3_OVER_2, -0.5},
+                                     { 1, 1, 1 } };
 
   unsigned mirror_count[3] = {0, 0, 0};
 
+  mirror_count[1] = countMirrorsHomogeneous(S, E, dir, sdi2, direction_info[1]) +
+                    countMirrorsHomogeneous(S, E, dir, sdi4, direction_info[1]) +
+                    countMirrorsHomogeneous(S, E, dir, sdi6, direction_info[1]);
 
+  countMirrorsHeterogeneous(S, E, dir, sdi1, direction_info[0], mirror_count);
+  countMirrorsHeterogeneous(S, E, dir, sdi3, direction_info[0], mirror_count);
+  countMirrorsHeterogeneous(S, E, dir, sdi5, direction_info[0], mirror_count);
+
+  return pow(r1, mirror_count[0]) * pow(r2, mirror_count[1]) * pow(r3, mirror_count[2]);
 }
 
 
