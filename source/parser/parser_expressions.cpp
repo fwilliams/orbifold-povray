@@ -3618,6 +3618,11 @@ GenericSpline *Parser::Parse_Spline()
             MaxTerms = max(MaxTerms, Terms);
             Parse_Comma();
             /* MWW 2000 -- Changed call for dynamic allocation version */
+
+            // FIXME: Why does this unfuck the segfault?
+            New->SplineEntries.push_back(SplineEntry());
+            New->SplineEntries.pop_back();
+
             Insert_Spline_Entry(New, par, Express);
             i++;
         END_CASE

@@ -444,11 +444,13 @@ SplineEntryList::size_type findt(const GenericSpline * sp, DBL Time)
 void mkfree(GenericSpline * sp, SplineEntryList::size_type i)
 {
     SplineEntryList::size_type j;
-    SplineEntryList& se = sp->SplineEntries;
+//    SplineEntryList& se = sp->SplineEntries;
 
-    se.resize(se.size()+1);
-    for (j=sp->SplineEntries.size()-1; j>i; j--)
-        se[j] = se[j-1];
+    //sp->SplineEntries.resize(sp->SplineEntries.size()+1);
+    sp->SplineEntries.push_back(SplineEntry());//(se.size()+1);
+    for (j=sp->SplineEntries.size()-1; j>i; j--) {
+      sp->SplineEntries[j] = sp->SplineEntries[j-1];
+    }
 }
 
 
