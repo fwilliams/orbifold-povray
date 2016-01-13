@@ -1482,13 +1482,11 @@ void Trace::ComputePhotonDiffuseLight(const FINISH *Finish, const Vector3d& IPoi
     // statistics
     threadData->Stats()[Gather_Performed_Count]++;
 
-    if(gatherer.gathered) {
+    if(gatherer.gathered)
         r = gatherer.alreadyGatheredRadius;
-    } else {
-        Vector3d dummy;
-        Vector3d IPoint_Collapsed = sceneData->orbifoldData.collapse(IPoint, dummy);
-        r = gatherer.gatherPhotonsAdaptive(&IPoint_Collapsed, &Layer_Normal, true);
-    }
+    else
+        r = gatherer.gatherPhotonsAdaptive(&IPoint, &Layer_Normal, true);
+
     n = gatherer.gatheredPhotons.numFound;
 
     tmpCol.Clear();
