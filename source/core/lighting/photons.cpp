@@ -321,6 +321,7 @@ void PhotonTrace::ComputeLightedTexture(MathColour& LightCol, ColourChannel&, co
         }
     }
     LightCol *= AttCol;
+    LightCol*=sceneData->orbifoldData.attenuate(ray, isect);
 
     // set size here
     threadData->photonDepth += isect.Depth;
@@ -332,6 +333,7 @@ void PhotonTrace::ComputeLightedTexture(MathColour& LightCol, ColourChannel&, co
         !Test_Flag(isect.Object,PH_IGNORE_PHOTONS_FLAG) &&
         Check_Photon_Light_Group(isect.Object))
     {
+
         addSurfacePhoton(isect.IPoint, ray.Origin, LightCol);
     }
 
@@ -902,11 +904,12 @@ void PhotonTrace::addSurfacePhoton(const Vector3d& Point, const Vector3d& Origin
     // convert photon from three floats to 4 bytes
     Photon->colour = PhotonColour(ToRGBColour(LightCol2));
 
+    d = (Origin - Point).normalized();
+
     // store the location
-    Photon->Loc = PhotonVector3d(Point);
+    Photon->Loc = PhotonVector3d(sceneData->orbifoldData.collapse(Point, d));
 
     // now determine rotation angles
-    d = (Origin - Point).normalized();
     d_len = sqrt(d[X]*d[X]+d[Z]*d[Z]);
 
     phi = acos(d[X]/d_len);
@@ -988,11 +991,13 @@ void PhotonMediaFunction::addMediaPhoton(const Vector3d& Point, const Vector3d& 
     // convert photon from three floats to 4 bytes
     Photon->colour = PhotonColour(ToRGBColour(LightCol2));
 
+    d = (Origin - Point).normalized();
+
     // store the location
-    Photon->Loc = PhotonVector3d(Point);
+    Photon->Loc = PhotonVector3d(sceneData->orbifoldData.collapse(Point, d));
+
 
     // now determine rotation angles
-    d = (Origin - Point).normalized();
     d_len = sqrt(d[X]*d[X]+d[Z]*d[Z]);
 
     phi = acos(d[X]/d_len);
@@ -1167,7 +1172,13 @@ void PhotonMediaFunction::DepositMediaPhotons(MathColour& colour, MediaVector& m
                 Vector3d TempPoint;
                 TempPoint = ray.Evaluate(d0*(*i).ds+(*i).s0);
 
-                addMediaPhoton(TempPoint, ray.Origin, PhotonColour, d0*(*i).ds+(*i).s0);
+                {
+                  Intersection isect;
+                  isect.IPoint = TempPoint;
+                  PhotonColour *= sceneData->orbifoldData.attenuate(ray, isect);
+                  addMediaPhoton(TempPoint, ray.Origin,
+                      PhotonColour, d0*(*i).ds+(*i).s0);
+                }
             }
         }
     }

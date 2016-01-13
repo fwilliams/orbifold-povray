@@ -46,6 +46,7 @@
 #include "core/math/chi2.h"
 #include "core/render/ray.h"
 #include "core/scene/tracethreaddata.h"
+#include "core/scene/scenedata.h"
 
 // this must be the last file included
 #include "base/povdebug.h"
@@ -1107,11 +1108,13 @@ void MediaFunction::ComputeMediaPhotons(MediaVector& medias, MathColour& Te, con
         // statistics
         threadData->Stats()[Gather_Performed_Count]++;
 
-        if(photonGatherer->gathered)
+        if(photonGatherer->gathered) {
             r = photonGatherer->alreadyGatheredRadius;
-        else
-            r = photonGatherer->gatherPhotonsAdaptive(&H, NULL, false);
-
+        } else {
+            Vector3d dummy(0, 0, 0);
+            Vector3d H_Collapsed = this->threadData->GetSceneData()->orbifoldData.collapse(H, dummy);
+            r = photonGatherer->gatherPhotonsAdaptive(&H_Collapsed, NULL, false);
+        }
         Colour2.Clear();
 
         // now go through these photons and add up their contribution

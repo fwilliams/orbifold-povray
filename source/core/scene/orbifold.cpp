@@ -31,15 +31,18 @@ static inline int fastCeil(double x) {
 
 void OrbifoldData::InitX333OrbifoldData() {
   attenuate_callback = &OrbifoldData::attenuateX333;
+  collapse_callback = &OrbifoldData::collapseX333;
 
   const double SQRT_3_OVER_2 = 0.8660254037844386;
   const double SQRT_3_OVER_4 = 0.4330127018922193;
+  const double SQRT_3_OVER_6 = 0.28867513459481287;
 
   direction_info[0].h_sep = scale.x();
   direction_info[0].v_sep = SQRT_3_OVER_2 * scale.x();
   direction_info[0].offset_array[0] = 0;
   direction_info[0].offset_array[1] = 1.5 * scale.x();
-  direction_info[0].base = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
+//  direction_info[0].base = Vector2d(-0.5, -SQRT_3_OVER_4) * scale.x();
+  direction_info[0].base = Vector2d(-0.5, -SQRT_3_OVER_6) * scale.x();
 }
 
 void OrbifoldData::InitX2222OrbifoldData() {
@@ -363,4 +366,131 @@ double OrbifoldData::attenuateX442(const Ray& ray, const Intersection& isect) co
   return pow(r1, mirror_count[0]) * pow(r2, mirror_count[1]) * pow(r3, mirror_count[2]);
 }
 
+
+template <typename T> int sgn(T val) {
+    return (T(0) < val) - (val < T(0));
+}
+
+Vector3d OrbifoldData::collapseX333(const Vector3d& pt, Vector3d& out_dir) const {
+  const double SQRT_3_OVER_2 = 0.8660254037844386;
+  const double SQRT_3_OVER_3 = 0.5773502691896257;
+
+  const Vector2d o = -direction_info[0].base;
+  const Vector2d e = Vector2d(pt.x(), pt.z()) - direction_info[0].base;
+  Vector2d d = e-o;
+  d.normalize();
+
+  // Mirror 0 on the bottom
+  const StaticDirectionInfo sdi1 = { Vector2d{0, 1},
+                                     Vector2d{1, 0},
+                                     { 0, 1, 2 } };
+  // Mirror 1 on the right
+  const StaticDirectionInfo sdi2 = { Vector2d{SQRT_3_OVER_2, 0.5},
+                                     Vector2d{-0.5, SQRT_3_OVER_2},
+                                     { 0, 1, 2 } };
+  // Mirror 2 on the left
+  const StaticDirectionInfo sdi3 = { Vector2d{-SQRT_3_OVER_2, 0.5},
+                                     Vector2d{0.5, SQRT_3_OVER_2},
+                                     { 2, 1, 0 } };
+
+
+
+  // The number of mirrors intersected in each direction
+  const unsigned n1 = countMirrorsHomogeneous(o, e, d, sdi1, direction_info[0]);
+  const unsigned n2 = countMirrorsHomogeneous(o, e, d, sdi2, direction_info[0]);
+  const unsigned n3 = countMirrorsHomogeneous(o, e, d, sdi3, direction_info[0]);
+
+  // These values will be negative if the path from the origin to the point is going
+  // opposite to the normal of the mirror
+  const double sign1 = sgn<double>(dot(d, sdi1.o));
+  const double sign2 = sgn<double>(dot(d, sdi2.o));
+  const double sign3 = sgn<double>(dot(d, sdi3.o));
+
+  const double translate_x = (sdi1.o[0]*sign1*n1 + sdi2.o[0]*sign2*n2 + sdi3.o[0]*sign3*n3);
+  const double translate_z = (sdi1.o[1]*sign1*n1 + sdi2.o[1]*sign2*n2 + sdi3.o[1]*sign3*n3);
+
+  Vector3d ret = pt;
+  ret.x() -= translate_x * scale.x() * SQRT_3_OVER_3;
+  ret.y() = pt.y();
+  ret.z() -=  translate_z * scale.x() * SQRT_3_OVER_3;
+
+  if(n1 % 2 != 0) {
+    const double a00 = 1 - 2 * sdi1.o[0] * sdi1.o[0];
+    const double a01 = -2 * sdi1.o[0] * sdi1.o[1];
+    const double a10 = a01;
+    const double a11 = 1 - 2 * sdi1.o[1] * sdi1.o[1];
+
+    const double xp = a00*ret.x() + a01*ret.z();
+    const double zp = a10*ret.x() + a11*ret.z();
+
+    const double oxp = a00*out_dir.x() + a01*out_dir.z();
+    const double ozp = a10*out_dir.x() + a11*out_dir.z();
+
+    out_dir.x() = oxp;
+    out_dir.z() = ozp;
+
+    ret.x() = xp;
+    ret.z() = zp;
+  }
+  if(n2 % 2 != 0) {
+    const double a00 = 1 - 2 * sdi2.o[0] * sdi2.o[0];
+    const double a01 = -2 * sdi2.o[0] * sdi2.o[1];
+    const double a10 = a01;
+    const double a11 = 1 - 2 * sdi2.o[1] * sdi2.o[1];
+
+    const double xp = a00*ret.x() + a01*ret.z();
+    const double zp = a10*ret.x() + a11*ret.z();
+
+    const double oxp = a00*out_dir.x() + a01*out_dir.z();
+    const double ozp = a10*out_dir.x() + a11*out_dir.z();
+
+    out_dir.x() = oxp;
+    out_dir.z() = ozp;
+
+    ret.x() = xp;
+    ret.z() = zp;
+  }
+
+  if(n3 % 2 != 0) {
+    const double a00 = 1 - 2 * sdi3.o[0] * sdi3.o[0];
+    const double a01 = -2 * sdi3.o[0] * sdi3.o[1];
+    const double a10 = a01;
+    const double a11 = 1 - 2 * sdi3.o[1] * sdi3.o[1];
+
+    const double xp = a00*ret.x() + a01*ret.z();
+    const double zp = a10*ret.x() + a11*ret.z();
+
+    const double oxp = a00*out_dir.x() + a01*out_dir.z();
+    const double ozp = a10*out_dir.x() + a11*out_dir.z();
+
+    out_dir.x() = oxp;
+    out_dir.z() = ozp;
+
+    ret.x() = xp;
+    ret.z() = zp;
+  }
+
+  return ret;
+
+/*
+ *
+// A reflection about a plane with normal Normal which
+// has been translated by Translation
+  #local A = Normal.x;
+  #local B = Normal.y;
+  #local C = Normal.z;
+#macro ReflectionTransform(Normal, Translation)
+  #local A = Normal.x;
+  #local B = Normal.y;
+  #local C = Normal.z;
+  transform {
+    matrix < 1-2*A*A, -2*A*B,   -2*A*C,
+            -2*A*B,    1-2*B*B, -2*B*C,
+            -2*A*C,   -2*B*C,    1-2*C*C,
+             0,        0,        0>
+    translate Normal * Translation
+  }
+#end
+ */
+}
 }

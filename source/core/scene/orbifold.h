@@ -46,7 +46,8 @@ namespace pov {
 struct OrbifoldData {
   OrbifoldData() :
     scale(Vector3d(1, 1, 1)), r1(0), r2(0),
-    r3(0), r4(0), attenuate_callback(&OrbifoldData::attenuateTrivial) {}
+    r3(0), r4(0), attenuate_callback(&OrbifoldData::attenuateTrivial),
+    collapse_callback(&OrbifoldData::collapseTrivial) {}
 
   /*
    * A scaling factor for the scense
@@ -66,6 +67,14 @@ struct OrbifoldData {
   inline double attenuate(const Ray& r, const Intersection& i) const {
     return (this->*attenuate_callback)(r, i);
   }
+
+  /*
+   * Transforms a virtual point into its fundamental domain
+   */
+  inline Vector3d collapse(const Vector3d& point, Vector3d& out_fixed_dir) const {
+    return (this->*collapse_callback)(point, out_fixed_dir);
+  }
+
 
   /*
    * Initialize this structure based on the type of orbifold present
@@ -103,6 +112,11 @@ private:
   typedef double (OrbifoldData::*OrbifoldAttenuationCallback)(const Ray& r, const Intersection& isect) const;
 
   /*
+   * Point collapse callback
+   */
+  typedef Vector3d (OrbifoldData::*OrbifoldCollapseCallback)(const Vector3d& pt, Vector3d& ofd) const;
+
+  /*
    * Information about adjacent mirror directions set at runtime
    */
   DynamicDirectionInfo direction_info[2];
@@ -113,6 +127,12 @@ private:
    * specified.
    */
   OrbifoldAttenuationCallback attenuate_callback;
+
+  /*
+   * The callback function which collapses a virtual point into the fundamental domain.
+   * This gets set at runtime to one of the collapse*() functions based on the type of orbifold specified.
+   */
+  OrbifoldCollapseCallback collapse_callback;
 
   /*
    * Called when each mirror plane consists of a repeating pattern of different mirrors.
@@ -133,12 +153,18 @@ private:
                           const Vector2d& dir, const StaticDirectionInfo& s_dir,
                           const DynamicDirectionInfo& d_dir) const;
 
-  double attenuateTrivial(const Ray& ray, const Intersection& isect) const { return 1.0; }
+  double attenuateTrivial(const Ray& ray, const Intersection& isect) const {
+    throw runtime_error("BREAKDOWN!");
+    return 1.0;
+  }
   double attenuateX333(const Ray& ray, const Intersection& isect) const;
   double attenuateX2222(const Ray& ray, const Intersection& isect) const;
   double attenuateXX(const Ray& ray, const Intersection& isect) const;
   double attenuateX632(const Ray& ray, const Intersection& isect) const;
   double attenuateX442(const Ray& ray, const Intersection& isect) const;
+
+  Vector3d collapseTrivial(const Vector3d& pt, Vector3d& o) const { return pt; }
+  Vector3d collapseX333(const Vector3d& pt, Vector3d& o) const;
 };
 
 }
