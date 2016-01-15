@@ -204,7 +204,7 @@ DBL PhotonTrace::TraceRay(Ray& ray, MathColour& colour, ColourChannel&, COLC wei
         ColourChannel dummyTransm;
         ComputeTextureColour(bestisect, colour, dummyTransm, ray, weight, true);
 
-        colour *= sceneData->orbifoldData.attenuate(ray, bestisect);
+//        colour *= sceneData->orbifoldData.attenuate(ray, bestisect);
 
         // NK phmap
         threadData->passThruThis = threadData->passThruPrev;
@@ -260,6 +260,9 @@ void PhotonTrace::ComputeLightedTexture(MathColour& LightCol, ColourChannel&, co
 
     // initialize the new ray... we will probably end up using it
     NewRay.Origin = isect.IPoint;
+
+    // Attenuate the light color based on the orbifold
+    LightCol *= sceneData->orbifoldData.attenuate(ray, isect);
 
     // In the future, we could enhance this so that users can determine
     // how and when photons are deposited into different media.
@@ -903,10 +906,10 @@ void PhotonTrace::addSurfacePhoton(const Vector3d& Point, const Vector3d& Origin
     Photon->colour = PhotonColour(ToRGBColour(LightCol2));
 
     // store the location
-    Photon->Loc = PhotonVector3d(Point);
+    d = (Origin - Point).normalized();
+    Photon->Loc = PhotonVector3d(sceneData->orbifoldData.collapse(Point, d));
 
     // now determine rotation angles
-    d = (Origin - Point).normalized();
     d_len = sqrt(d[X]*d[X]+d[Z]*d[Z]);
 
     phi = acos(d[X]/d_len);
@@ -989,10 +992,10 @@ void PhotonMediaFunction::addMediaPhoton(const Vector3d& Point, const Vector3d& 
     Photon->colour = PhotonColour(ToRGBColour(LightCol2));
 
     // store the location
-    Photon->Loc = PhotonVector3d(Point);
+    d = (Origin - Point).normalized();
+    Photon->Loc = PhotonVector3d(sceneData->orbifoldData.collapse(Point, d));
 
     // now determine rotation angles
-    d = (Origin - Point).normalized();
     d_len = sqrt(d[X]*d[X]+d[Z]*d[Z]);
 
     phi = acos(d[X]/d_len);

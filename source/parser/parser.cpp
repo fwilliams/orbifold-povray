@@ -7001,67 +7001,80 @@ void Parser::Parse_Global_Settings()
 
 #ifdef ORBIFOLDS
         CASE (ORBIFOLD_TOKEN)
-            Warning("orbifold keyword encountered.");
-
             Parse_Begin();
             EXPECT
                 CASE(XX_TOKEN)
-                    Warning("** Orbifold");
+                    sceneData->orbifoldData.num_kernel_tiles = OrbifoldData::XX_KernelRadToTileNum(Parse_Float());
+                    Parse_Comma();
 
                     Parse_Vector(sceneData->orbifoldData.scale);
-                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
+
+                    sceneData->orbifoldData.r1 = Parse_Float(); Parse_Comma();
                     sceneData->orbifoldData.r2 = Parse_Float();
+
+                    Warning("** Orbifold with %u tiles per kernel", sceneData->orbifoldData.num_kernel_tiles);
                     sceneData->orbifoldData.InitXXOrbifoldData();
                 END_CASE
 
                 CASE(X2222_TOKEN)
-                    Warning("*2222 Orbifold");
+                    sceneData->orbifoldData.num_kernel_tiles = OrbifoldData::X2222_KernelRadToTileNum(Parse_Float());
+                    Parse_Comma();
 
                     Parse_Vector(sceneData->orbifoldData.scale);
-                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldData.r2 = Parse_Float();
-                    Parse_Comma();
-                    sceneData->orbifoldData.r3 = Parse_Float();
-                    Parse_Comma();
+
+                    sceneData->orbifoldData.r1 = Parse_Float(); Parse_Comma();
+                    sceneData->orbifoldData.r2 = Parse_Float(); Parse_Comma();
+                    sceneData->orbifoldData.r3 = Parse_Float(); Parse_Comma();
                     sceneData->orbifoldData.r4 = Parse_Float();
+
+                    Warning("*2222 Orbifold with %u tiles per kernel", sceneData->orbifoldData.num_kernel_tiles);
                     sceneData->orbifoldData.InitX2222OrbifoldData();
                 END_CASE
 
                 CASE(X333_TOKEN)
-                    Warning("*333 Orbifold");
+                    sceneData->orbifoldData.num_kernel_tiles = OrbifoldData::X333_KernelRadToTileNum(Parse_Float());
+                    Parse_Comma();
 
                     Parse_Vector(sceneData->orbifoldData.scale);
-                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldData.r2 = Parse_Float();
-                    Parse_Comma();
+
+                    sceneData->orbifoldData.r1 = Parse_Float(); Parse_Comma();
+                    sceneData->orbifoldData.r2 = Parse_Float(); Parse_Comma();
                     sceneData->orbifoldData.r3 = Parse_Float();
+
+                    Warning("*333 Orbifold with %u tiles per kernel", sceneData->orbifoldData.num_kernel_tiles);
                     sceneData->orbifoldData.InitX333OrbifoldData();
                 END_CASE
 
                 CASE(X632_TOKEN)
-                    Warning("*632 Orbifold");
+                    sceneData->orbifoldData.num_kernel_tiles = OrbifoldData::X632_KernelRadToTileNum(Parse_Float());
+                    Parse_Comma();
 
                     Parse_Vector(sceneData->orbifoldData.scale);
-                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldData.r2 = Parse_Float();
-                    Parse_Comma();
+
+                    sceneData->orbifoldData.r1 = Parse_Float(); Parse_Comma();
+                    sceneData->orbifoldData.r2 = Parse_Float(); Parse_Comma();
                     sceneData->orbifoldData.r3 = Parse_Float();
+
+                    Warning("*632 Orbifold with %u tiles per kernel", sceneData->orbifoldData.num_kernel_tiles);
                     sceneData->orbifoldData.InitX632OrbifoldData();
                 END_CASE
 
                 CASE(X442_TOKEN)
-                    Warning("*442 Orbifold");
+                    sceneData->orbifoldData.num_kernel_tiles = OrbifoldData::X442_KernelRadToTileNum(Parse_Float());
+                    Parse_Comma();
 
                     Parse_Vector(sceneData->orbifoldData.scale);
-                    sceneData->orbifoldData.r1 = Parse_Float();
                     Parse_Comma();
-                    sceneData->orbifoldData.r2 = Parse_Float();
-                    Parse_Comma();
+
+                    sceneData->orbifoldData.r1 = Parse_Float(); Parse_Comma();
+                    sceneData->orbifoldData.r2 = Parse_Float(); Parse_Comma();
                     sceneData->orbifoldData.r3 = Parse_Float();
+
+                    Warning("*442 Orbifold with %u tiles per kernel", sceneData->orbifoldData.num_kernel_tiles);
                     sceneData->orbifoldData.InitX442OrbifoldData();
                 END_CASE
 

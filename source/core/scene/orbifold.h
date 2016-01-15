@@ -45,8 +45,9 @@ namespace pov {
 
 struct OrbifoldData {
   OrbifoldData() :
-    scale(Vector3d(1, 1, 1)), r1(0), r2(0),
-    r3(0), r4(0), attenuate_callback(&OrbifoldData::attenuateTrivial),
+    scale(Vector3d(1, 1, 1)), r1(0), r2(0), r3(0), r4(0),
+    num_kernel_tiles(1),
+    attenuate_callback(&OrbifoldData::attenuateTrivial),
     collapse_callback(&OrbifoldData::collapseTrivial) {}
 
   /*
@@ -61,6 +62,11 @@ struct OrbifoldData {
   double r1, r2, r3, r4;
 
   /*
+   * The number of tiles in the kernel being rendered
+   */
+  unsigned num_kernel_tiles;
+
+  /*
    * Computes the attenuation along a ray which may intersect one or more mirror boundaries
    * in the unfolded scene
    */
@@ -69,12 +75,22 @@ struct OrbifoldData {
   }
 
   /*
-   * Transforms a virtual point into its fundamental domain
+   * Transforms (collapses) a point in the covering space into the fundamental domain.
+   * This function returns the transformed point. out_fixed_dir is mutated to point
+   * in the direction corresponding to the transformation
    */
   inline Vector3d collapse(const Vector3d& point, Vector3d& out_fixed_dir) const {
     return (this->*collapse_callback)(point, out_fixed_dir);
   }
 
+  /*
+   * Transforms (collapses) a point in the covering space into the fundamental domain.
+   * This function returns the transformed point.
+   */
+  inline Vector3d collapse(const Vector3d& point) const {
+    Vector3d dummy;
+    return (this->*collapse_callback)(point, dummy);
+  }
 
   /*
    * Initialize this structure based on the type of orbifold present
@@ -84,6 +100,33 @@ struct OrbifoldData {
   void InitXXOrbifoldData();
   void InitX442OrbifoldData();
   void InitX632OrbifoldData();
+
+  /*
+   * Convert a kernel radius to a number of tiles for each group
+   */
+  static inline unsigned X333_KernelRadToTileNum(unsigned kernel_rad) {
+    unsigned ret = 1;
+    for(unsigned i = 1; i <= kernel_rad; i++) {
+      ret += 6 * i;
+    }
+    return ret * 6;
+  }
+  static inline unsigned X2222_KernelRadToTileNum(unsigned kernel_rad) {
+    unsigned ret = 1;
+    for(unsigned i = 1; i <= kernel_rad; i++) {
+      ret += 8 * i;
+    }
+    return ret * 4;
+  }
+  static inline unsigned XX_KernelRadToTileNum(unsigned kernel_rad) {
+    return 4 * kernel_rad + 1;
+  }
+  static inline unsigned X442_KernelRadToTileNum(unsigned kernel_rad) {
+    return X2222_KernelRadToTileNum(kernel_rad) * 2;
+  }
+  static inline unsigned X632_KernelRadToTileNum(unsigned kernel_rad) {
+    return X333_KernelRadToTileNum(kernel_rad) * 2;
+  }
 
 private:
 
@@ -112,7 +155,7 @@ private:
   typedef double (OrbifoldData::*OrbifoldAttenuationCallback)(const Ray& r, const Intersection& isect) const;
 
   /*
-   * Point collapse callback
+   * Point collapse callback (see collapse)
    */
   typedef Vector3d (OrbifoldData::*OrbifoldCollapseCallback)(const Vector3d& pt, Vector3d& ofd) const;
 
@@ -154,7 +197,6 @@ private:
                           const DynamicDirectionInfo& d_dir) const;
 
   double attenuateTrivial(const Ray& ray, const Intersection& isect) const {
-    throw runtime_error("BREAKDOWN!");
     return 1.0;
   }
   double attenuateX333(const Ray& ray, const Intersection& isect) const;
@@ -165,6 +207,10 @@ private:
 
   Vector3d collapseTrivial(const Vector3d& pt, Vector3d& o) const { return pt; }
   Vector3d collapseX333(const Vector3d& pt, Vector3d& o) const;
+  Vector3d collapseX632(const Vector3d& pt, Vector3d& o) const;
+  Vector3d collapseX442(const Vector3d& pt, Vector3d& o) const;
+  Vector3d collapseX2222(const Vector3d& pt, Vector3d& o) const;
+  Vector3d collapseXX(const Vector3d& pt, Vector3d& o) const;
 };
 
 }

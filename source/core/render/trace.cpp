@@ -1482,10 +1482,12 @@ void Trace::ComputePhotonDiffuseLight(const FINISH *Finish, const Vector3d& IPoi
     // statistics
     threadData->Stats()[Gather_Performed_Count]++;
 
-    if(gatherer.gathered)
+    if(gatherer.gathered) {
         r = gatherer.alreadyGatheredRadius;
-    else
-        r = gatherer.gatherPhotonsAdaptive(&IPoint, &Layer_Normal, true);
+    } else {
+        Vector3d IPoint_collapsed = threadData->GetSceneData()->orbifoldData.collapse(IPoint);
+        r = gatherer.gatherPhotonsAdaptive(&IPoint_collapsed, &Layer_Normal, true);
+    }
 
     n = gatherer.gatheredPhotons.numFound;
 
@@ -1578,6 +1580,7 @@ void Trace::ComputePhotonDiffuseLight(const FINISH *Finish, const Vector3d& IPoi
     // finish the photons equation
     tmpCol /= M_PI*r*r;
 
+    tmpCol /= static_cast<double>(sceneData->orbifoldData.num_kernel_tiles);
     // add photon contribution to total lighting
     colour += tmpCol;
 }
