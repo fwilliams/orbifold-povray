@@ -23,6 +23,28 @@ static inline int fastCeil(double x) {
   return i + 1 - ( i > x ); /* convert trunc to ceil */
 }
 
+template <typename T>
+static inline int sign(T val) {
+  return (T(0) < val) - (val < T(0));
+}
+
+static inline void reflect(const Vector2d& n, Vector3d& v1, Vector3d& v2) {
+  const double a00 = 1 - 2 * n[0] * n[0];
+  const double a01 = -2 * n[0] * n[1];
+  const double a10 = a01;
+  const double a11 = 1 - 2 * n[1] * n[1];
+
+  const double x1p = a00*v1.x() + a01*v1.z();
+  const double z1p = a10*v1.x() + a11*v1.z();
+
+  const double x2p = a00*v2.x() + a01*v2.z();
+  const double z2p = a10*v2.x() + a11*v2.z();
+
+  v1.x() = x1p;
+  v1.z() = z1p;
+  v2.x() = x2p;
+  v2.z() = z2p;
+}
 
 
 /*
@@ -60,6 +82,7 @@ void OrbifoldData::InitXXOrbifoldData() {
 
 void OrbifoldData::InitX632OrbifoldData() {
   attenuate_callback = &OrbifoldData::attenuateX632;
+  collapse_callback = &OrbifoldData::collapseX632;
 
   const double SQRT_3_OVER_2 = 0.8660254037844386;
   const double SQRT_3_OVER_4 = 0.4330127018922193;
@@ -367,17 +390,13 @@ double OrbifoldData::attenuateX442(const Ray& ray, const Intersection& isect) co
 }
 
 
-template <typename T> int sgn(T val) {
-    return (T(0) < val) - (val < T(0));
-}
-
 Vector3d OrbifoldData::collapseX333(const Vector3d& pt, Vector3d& out_dir) const {
   const double SQRT_3_OVER_2 = 0.8660254037844386;
   const double SQRT_3_OVER_3 = 0.5773502691896257;
 
   const Vector2d o = -direction_info[0].base;
   const Vector2d e = Vector2d(pt.x(), pt.z()) - direction_info[0].base;
-  Vector2d d = e-o;
+  Vector2d d = (e-o);
   d.normalize();
 
   // Mirror 0 on the bottom
@@ -393,8 +412,6 @@ Vector3d OrbifoldData::collapseX333(const Vector3d& pt, Vector3d& out_dir) const
                                      Vector2d{0.5, SQRT_3_OVER_2},
                                      { 2, 1, 0 } };
 
-
-
   // The number of mirrors intersected in each direction
   const unsigned n1 = countMirrorsHomogeneous(o, e, d, sdi1, direction_info[0]);
   const unsigned n2 = countMirrorsHomogeneous(o, e, d, sdi2, direction_info[0]);
@@ -402,9 +419,9 @@ Vector3d OrbifoldData::collapseX333(const Vector3d& pt, Vector3d& out_dir) const
 
   // These values will be negative if the path from the origin to the point is going
   // opposite to the normal of the mirror
-  const double sign1 = sgn<double>(dot(d, sdi1.o));
-  const double sign2 = sgn<double>(dot(d, sdi2.o));
-  const double sign3 = sgn<double>(dot(d, sdi3.o));
+  const double sign1 = sign<double>(dot(d, sdi1.o));
+  const double sign2 = sign<double>(dot(d, sdi2.o));
+  const double sign3 = sign<double>(dot(d, sdi3.o));
 
   const double translate_x = (sdi1.o[0]*sign1*n1 + sdi2.o[0]*sign2*n2 + sdi3.o[0]*sign3*n3);
   const double translate_z = (sdi1.o[1]*sign1*n1 + sdi2.o[1]*sign2*n2 + sdi3.o[1]*sign3*n3);
@@ -415,82 +432,115 @@ Vector3d OrbifoldData::collapseX333(const Vector3d& pt, Vector3d& out_dir) const
   ret.z() -=  translate_z * scale.x() * SQRT_3_OVER_3;
 
   if(n1 % 2 != 0) {
-    const double a00 = 1 - 2 * sdi1.o[0] * sdi1.o[0];
-    const double a01 = -2 * sdi1.o[0] * sdi1.o[1];
-    const double a10 = a01;
-    const double a11 = 1 - 2 * sdi1.o[1] * sdi1.o[1];
-
-    const double xp = a00*ret.x() + a01*ret.z();
-    const double zp = a10*ret.x() + a11*ret.z();
-
-    const double oxp = a00*out_dir.x() + a01*out_dir.z();
-    const double ozp = a10*out_dir.x() + a11*out_dir.z();
-
-    out_dir.x() = oxp;
-    out_dir.z() = ozp;
-
-    ret.x() = xp;
-    ret.z() = zp;
+    out_dir.z() *= -1;
+    ret.z() *= -1;
   }
   if(n2 % 2 != 0) {
-    const double a00 = 1 - 2 * sdi2.o[0] * sdi2.o[0];
-    const double a01 = -2 * sdi2.o[0] * sdi2.o[1];
-    const double a10 = a01;
-    const double a11 = 1 - 2 * sdi2.o[1] * sdi2.o[1];
-
-    const double xp = a00*ret.x() + a01*ret.z();
-    const double zp = a10*ret.x() + a11*ret.z();
-
-    const double oxp = a00*out_dir.x() + a01*out_dir.z();
-    const double ozp = a10*out_dir.x() + a11*out_dir.z();
-
-    out_dir.x() = oxp;
-    out_dir.z() = ozp;
-
-    ret.x() = xp;
-    ret.z() = zp;
+    reflect(sdi2.o, ret, out_dir);
   }
-
   if(n3 % 2 != 0) {
-    const double a00 = 1 - 2 * sdi3.o[0] * sdi3.o[0];
-    const double a01 = -2 * sdi3.o[0] * sdi3.o[1];
-    const double a10 = a01;
-    const double a11 = 1 - 2 * sdi3.o[1] * sdi3.o[1];
-
-    const double xp = a00*ret.x() + a01*ret.z();
-    const double zp = a10*ret.x() + a11*ret.z();
-
-    const double oxp = a00*out_dir.x() + a01*out_dir.z();
-    const double ozp = a10*out_dir.x() + a11*out_dir.z();
-
-    out_dir.x() = oxp;
-    out_dir.z() = ozp;
-
-    ret.x() = xp;
-    ret.z() = zp;
+    reflect(sdi3.o, ret, out_dir);
   }
 
   return ret;
+}
 
-/*
- *
-// A reflection about a plane with normal Normal which
-// has been translated by Translation
-  #local A = Normal.x;
-  #local B = Normal.y;
-  #local C = Normal.z;
-#macro ReflectionTransform(Normal, Translation)
-  #local A = Normal.x;
-  #local B = Normal.y;
-  #local C = Normal.z;
-  transform {
-    matrix < 1-2*A*A, -2*A*B,   -2*A*C,
-            -2*A*B,    1-2*B*B, -2*B*C,
-            -2*A*C,   -2*B*C,    1-2*C*C,
-             0,        0,        0>
-    translate Normal * Translation
+Vector3d OrbifoldData::collapseX632(const Vector3d& pt, Vector3d& out_dir) const {
+  const double SQRT_3_OVER_2 = 0.8660254037844386;
+  const double SQRT_3_OVER_4 = 0.8660254037844386 * 0.5;
+  const double SQRT_3_OVER_3 = 0.5773502691896257;
+  const double SQRT_3_OVER_6 = 0.5773502691896257 * 0.5;
+  const double ONE_THIRD = (1.0/3.0);
+  const double ONE_SIXTH = (1.0/6.0);
+
+  const Vector2d o = -direction_info[0].base;
+  const Vector2d e = Vector2d(pt.x(), pt.z()) - direction_info[0].base;
+  Vector2d d = (e-o);
+  d.normalize();
+
+  // Homogeneous
+  const StaticDirectionInfo sdi1 = { Vector2d{-0.5, SQRT_3_OVER_2},
+                                     Vector2d{SQRT_3_OVER_2, 0.5},
+                                     { 1, 1, 1 } };
+  const StaticDirectionInfo sdi2 = { Vector2d{0.5, SQRT_3_OVER_2},
+                                     Vector2d{SQRT_3_OVER_2, -0.5},
+                                     { 1, 1, 1 } };
+  const StaticDirectionInfo sdi3 = { Vector2d{-1, 0},
+                                     Vector2d{0, 1},
+                                     { 1, 1, 1 } };
+  // Heterogeneous
+  const StaticDirectionInfo sdi4 = { Vector2d{0, 1},
+                                     Vector2d{1, 0},
+                                     { 2, 0, 2 } };
+  const StaticDirectionInfo sdi5 = { Vector2d{-SQRT_3_OVER_2, 0.5},
+                                     Vector2d{0.5, SQRT_3_OVER_2},
+                                     { 2, 0, 2 } };
+  const StaticDirectionInfo sdi6 = { Vector2d{SQRT_3_OVER_2, 0.5},
+                                     Vector2d{0.5, -SQRT_3_OVER_2},
+                                     { 2, 0, 2 } };
+
+
+  // These values will be negative if the path from the origin to the point is going
+  // opposite to the normal of the mirror
+  const double sign1 = sign<double>(dot(d, sdi1.o));
+  const double sign2 = sign<double>(dot(d, sdi2.o));
+  const double sign3 = sign<double>(dot(d, sdi3.o));
+  const double sign4 = sign<double>(dot(d, sdi4.o));
+  const double sign5 = sign<double>(dot(d, sdi5.o));
+  const double sign6 = sign<double>(dot(d, sdi6.o));
+
+  Vector2d p(0, 0);
+
+  const unsigned n1 = countMirrorsHomogeneous(o, e, d, sdi1, direction_info[1]);
+  p += static_cast<double>(n1)*sign1*ONE_THIRD * sdi1.o;
+
+  const unsigned n2 = countMirrorsHomogeneous(o, e, d, sdi2, direction_info[1]);
+  p += static_cast<double>(n2)*sign2*ONE_THIRD * sdi2.o;
+
+  const unsigned n3 = countMirrorsHomogeneous(o, e, d, sdi3, direction_info[1]);
+  p += static_cast<double>(n3)*sign3*ONE_THIRD * sdi3.o;
+
+
+  unsigned mc1[3] = {0, 0, 0};
+  countMirrorsHeterogeneous(o, e, d, sdi4, direction_info[0], mc1);
+  p += sign4*(mc1[0]*SQRT_3_OVER_3 + mc1[1]*ONE_THIRD + mc1[2]*ONE_THIRD) * sdi4.o;
+  const unsigned n4 = mc1[0] + mc1[1] + mc1[2];
+
+  unsigned mc2[3] = {0, 0, 0};
+  countMirrorsHeterogeneous(o, e, d, sdi5, direction_info[0], mc2);
+  p += sign5*(mc2[0]*SQRT_3_OVER_3 + mc2[1]*ONE_THIRD + mc2[2]*ONE_THIRD) * sdi5.o;
+  const unsigned n5 = mc2[0] + mc2[1] + mc2[2];
+
+  unsigned mc3[3] = {0, 0, 0};
+  countMirrorsHeterogeneous(o, e, d, sdi6, direction_info[0], mc3);
+  p += sign6*(mc3[0]*SQRT_3_OVER_3 + mc3[1]*ONE_THIRD + mc3[2]*ONE_THIRD) * sdi6.o;
+  const unsigned n6 = mc3[0] + mc3[1] + mc3[2];
+
+  p *= scale.x();
+
+  Vector3d ret = pt;
+  ret.x() -= p.x();
+  ret.z() -=  p.y();
+
+  if(n1 % 2 != 0) {
+    reflect(sdi1.o, ret, out_dir);
   }
-#end
- */
+  if(n2 % 2 != 0) {
+    reflect(sdi2.o, ret, out_dir);
+  }
+  if(n3 % 2 != 0) {
+    reflect(sdi3.o, ret, out_dir);
+  }
+  if(n4 % 2 != 0) {
+    reflect(sdi4.o, ret, out_dir);
+  }
+  if(n5 % 2 != 0) {
+    reflect(sdi5.o, ret, out_dir);
+  }
+  if(n6 % 2 != 0) {
+    reflect(sdi6.o, ret, out_dir);
+  }
+  return ret;
 }
-}
+
+} // namespace pov
